@@ -1,0 +1,456 @@
+[
+  {
+    "name": "Foul Plate (Plain)",
+    "category": "Breakfast",
+    "calories": 250,
+    "protein_g": 15,
+    "carbs_g": 35,
+    "fats_g": 8,
+    "reference_price": 25.0
+  },
+  {
+    "name": "Foul Plate (Olive Oil)",
+    "category": "Breakfast",
+    "calories": 300,
+    "protein_g": 15,
+    "carbs_g": 35,
+    "fats_g": 14,
+    "reference_price": 30.0
+  },
+  {
+    "name": "Foul Plate (Alexandrian)",
+    "category": "Breakfast",
+    "calories": 350,
+    "protein_g": 16,
+    "carbs_g": 40,
+    "fats_g": 15,
+    "reference_price": 35.0
+  },
+  {
+    "name": "Falafel (4 Pieces)",
+    "category": "Breakfast",
+    "calories": 320,
+    "protein_g": 12,
+    "carbs_g": 20,
+    "fats_g": 18,
+    "reference_price": 20.0
+  },
+  {
+    "name": "Omelette with Pastrami",
+    "category": "Breakfast",
+    "calories": 450,
+    "protein_g": 25,
+    "carbs_g": 5,
+    "fats_g": 35,
+    "reference_price": 75.0
+  },
+  {
+    "name": "Cheese with Tomato (Feta)",
+    "category": "Breakfast",
+    "calories": 200,
+    "protein_g": 10,
+    "carbs_g": 10,
+    "fats_g": 15,
+    "reference_price": 40.0
+  },
+  {
+    "name": "Koshary Plate (Medium)",
+    "category": "Lunch",
+    "calories": 600,
+    "protein_g": 18,
+    "carbs_g": 90,
+    "fats_g": 12,
+    "reference_price": 45.0
+  },
+  {
+    "name": "Koshary Plate (Big Boss)",
+    "category": "Lunch",
+    "calories": 900,
+    "protein_g": 25,
+    "carbs_g": 140,
+    "fats_g": 18,
+    "reference_price": 65.0
+  },
+  {
+    "name": "Mahshi Vine Leaves (15 pcs)",
+    "category": "Lunch",
+    "calories": 400,
+    "protein_g": 8,
+    "carbs_g": 60,
+    "fats_g": 10,
+    "reference_price": 70.0
+  },
+  {
+    "name": "Mahshi Cabbage (Plate)",
+    "category": "Lunch",
+    "calories": 450,
+    "protein_g": 10,
+    "carbs_g": 70,
+    "fats_g": 12,
+    "reference_price": 60.0
+  },
+  {
+    "name": "Molokhia with White Rice",
+    "category": "Lunch",
+    "calories": 500,
+    "protein_g": 12,
+    "carbs_g": 80,
+    "fats_g": 15,
+    "reference_price": 55.0
+  },
+  {
+    "name": "Pasta Bechamel (Large)",
+    "category": "Lunch",
+    "calories": 750,
+    "protein_g": 30,
+    "carbs_g": 70,
+    "fats_g": 35,
+    "reference_price": 85.0
+  },
+  {
+    "name": "Hawawshi (1 Loaf)",
+    "category": "Dinner",
+    "calories": 650,
+    "protein_g": 35,
+    "carbs_g": 45,
+    "fats_g": 35,
+    "reference_price": 80.0
+  },
+  {
+    "name": "Liver Sandwich (Alexandrian)",
+    "category": "Dinner",
+    "calories": 300,
+    "protein_g": 20,
+    "carbs_g": 30,
+    "fats_g": 12,
+    "reference_price": 40.0
+  },
+  {
+    "name": "Beef Shawarma (Kaiser)",
+    "category": "Dinner",
+    "calories": 400,
+    "protein_g": 25,
+    "carbs_g": 35,
+    "fats_g": 20,
+    "reference_price": 60.0
+  },
+  {
+    "name": "Chicken Shawarma (Saj)",
+    "category": "Dinner",
+    "calories": 550,
+    "protein_g": 30,
+    "carbs_g": 50,
+    "fats_g": 25,
+    "reference_price": 90.0
+  },
+  {
+    "name": "Classic Cheeseburger",
+    "category": "Lunch",
+    "calories": 550,
+    "protein_g": 30,
+    "carbs_g": 40,
+    "fats_g": 28,
+    "reference_price": 120.0,
+    "is_national_brand": true
+  },
+  {
+    "name": "Fried Chicken (3 pcs)",
+    "category": "Lunch",
+    "calories": 700,
+    "protein_g": 45,
+    "carbs_g": 30,
+    "fats_g": 40,
+    "reference_price": 180.0,
+    "is_national_brand": true
+  },
+  {
+    "name": "Pizza Margherita (Medium)",
+    "category": "Dinner",
+    "calories": 800,
+    "protein_g": 30,
+    "carbs_g": 100,
+    "fats_g": 30,
+    "reference_price": 140.0
+  },
+  {
+    "name": "Seafood Pizza (Medium)",
+    "category": "Dinner",
+    "calories": 900,
+    "protein_g": 40,
+    "carbs_g": 110,
+    "fats_g": 35,
+    "reference_price": 220.0
+  },
+  {
+    "name": "Chicken Pane Crepe",
+    "category": "Dinner",
+    "calories": 650,
+    "protein_g": 25,
+    "carbs_g": 70,
+    "fats_g": 28,
+    "reference_price": 95.0
+  },
+  {
+    "name": "Fiteer Meshaltet (Plain)",
+    "category": "Breakfast",
+    "calories": 600,
+    "protein_g": 10,
+    "carbs_g": 80,
+    "fats_g": 25,
+    "reference_price": 100.0
+  },
+  {
+    "name": "Sugarcane Juice (Large)",
+    "category": "Breakfast",
+    "calories": 200,
+    "protein_g": 0,
+    "carbs_g": 50,
+    "fats_g": 0,
+    "reference_price": 15.0
+  },
+  {
+    "name": "Rice Pudding (Roz Bel Laban)",
+    "category": "Breakfast",
+    "calories": 300,
+    "protein_g": 6,
+    "carbs_g": 50,
+    "fats_g": 8,
+    "reference_price": 30.0
+  },
+  {
+    "name": "Om Ali (Clay Pot)",
+    "category": "Breakfast",
+    "calories": 500,
+    "protein_g": 10,
+    "carbs_g": 60,
+    "fats_g": 25,
+    "reference_price": 60.0
+  },
+  {
+    "name": "Quarter Ribs Chicken",
+    "category": "Lunch",
+    "calories": 400,
+    "protein_g": 40,
+    "carbs_g": 0,
+    "fats_g": 25,
+    "reference_price": 110.0
+  },
+  {
+    "name": "Beef Kofta (1/4 kg)",
+    "category": "Lunch",
+    "calories": 500,
+    "protein_g": 35,
+    "carbs_g": 5,
+    "fats_g": 38,
+    "reference_price": 160.0
+  },
+  {
+    "name": "Stuffed Pigeon (1 pc)",
+    "category": "Lunch",
+    "calories": 450,
+    "protein_g": 30,
+    "carbs_g": 40,
+    "fats_g": 20,
+    "reference_price": 150.0
+  },
+  {
+    "name": "Okra (Bamia) w/ Meat",
+    "category": "Lunch",
+    "calories": 550,
+    "protein_g": 35,
+    "carbs_g": 40,
+    "fats_g": 25,
+    "reference_price": 120.0
+  },
+  {
+    "name": "Potato Tray w/ Chicken",
+    "category": "Lunch",
+    "calories": 650,
+    "protein_g": 40,
+    "carbs_g": 60,
+    "fats_g": 25,
+    "reference_price": 130.0
+  },
+  {
+    "name": "Lentil Soup",
+    "category": "Dinner",
+    "calories": 300,
+    "protein_g": 18,
+    "carbs_g": 45,
+    "fats_g": 5,
+    "reference_price": 45.0
+  },
+  {
+    "name": "Orzo Soup (Lisan Asfour)",
+    "category": "Dinner",
+    "calories": 200,
+    "protein_g": 5,
+    "carbs_g": 25,
+    "fats_g": 8,
+    "reference_price": 30.0
+  },
+  {
+    "name": "Eggplant Moussaka (Plain)",
+    "category": "Lunch",
+    "calories": 350,
+    "protein_g": 8,
+    "carbs_g": 40,
+    "fats_g": 20,
+    "reference_price": 50.0
+  },
+  {
+    "name": "Baladi Bread (Loaf)",
+    "category": "Breakfast",
+    "calories": 260,
+    "protein_g": 8,
+    "carbs_g": 50,
+    "fats_g": 2,
+    "reference_price": 5.0
+  },
+  {
+    "name": "Pepsi (Can)",
+    "category": "Breakfast",
+    "calories": 140,
+    "protein_g": 0,
+    "carbs_g": 39,
+    "fats_g": 0,
+    "reference_price": 15.0,
+    "is_national_brand": true
+  },
+  {
+    "name": "Mineral Water (Small)",
+    "category": "Breakfast",
+    "calories": 0,
+    "protein_g": 0,
+    "carbs_g": 0,
+    "fats_g": 0,
+    "reference_price": 7.0,
+    "is_national_brand": true
+  },
+  {
+    "name": "Grilled Tilapia",
+    "category": "Lunch",
+    "calories": 300,
+    "protein_g": 45,
+    "carbs_g": 0,
+    "fats_g": 12,
+    "reference_price": 90.0
+  },
+  {
+    "name": "Sayadeya Rice (Plate)",
+    "category": "Lunch",
+    "calories": 400,
+    "protein_g": 6,
+    "carbs_g": 70,
+    "fats_g": 10,
+    "reference_price": 35.0
+  },
+  {
+    "name": "Baba Ganoush (Side)",
+    "category": "Breakfast",
+    "calories": 150,
+    "protein_g": 2,
+    "carbs_g": 10,
+    "fats_g": 12,
+    "reference_price": 15.0
+  },
+  {
+    "name": "Tahini (Side)",
+    "category": "Breakfast",
+    "calories": 200,
+    "protein_g": 5,
+    "carbs_g": 8,
+    "fats_g": 18,
+    "reference_price": 15.0
+  },
+  {
+    "name": "Mango Juice (Large)",
+    "category": "Breakfast",
+    "calories": 250,
+    "protein_g": 1,
+    "carbs_g": 60,
+    "fats_g": 0,
+    "reference_price": 40.0
+  },
+  {
+    "name": "Basbousa (Plate)",
+    "category": "Breakfast",
+    "calories": 450,
+    "protein_g": 5,
+    "carbs_g": 60,
+    "fats_g": 20,
+    "reference_price": 40.0
+  },
+  {
+    "name": "Kunafa with Cream",
+    "category": "Breakfast",
+    "calories": 500,
+    "protein_g": 6,
+    "carbs_g": 70,
+    "fats_g": 25,
+    "reference_price": 120.0
+  },
+  {
+    "name": "Goulash with Meat",
+    "category": "Lunch",
+    "calories": 550,
+    "protein_g": 25,
+    "carbs_g": 40,
+    "fats_g": 30,
+    "reference_price": 90.0
+  },
+  {
+    "name": "Liver (1/4 kg Bag)",
+    "category": "Lunch",
+    "calories": 400,
+    "protein_g": 60,
+    "carbs_g": 10,
+    "fats_g": 15,
+    "reference_price": 150.0
+  },
+  {
+    "name": "Kebda Sandwich",
+    "category": "Dinner",
+    "calories": 250,
+    "protein_g": 15,
+    "carbs_g": 30,
+    "fats_g": 8,
+    "reference_price": 25.0
+  },
+  {
+    "name": "Sausage (Sogoq) Sandwich",
+    "category": "Dinner",
+    "calories": 350,
+    "protein_g": 12,
+    "carbs_g": 30,
+    "fats_g": 20,
+    "reference_price": 30.0
+  },
+  {
+    "name": "French Fries (Small)",
+    "category": "Breakfast",
+    "calories": 250,
+    "protein_g": 3,
+    "carbs_g": 35,
+    "fats_g": 12,
+    "reference_price": 20.0
+  },
+  {
+    "name": "Pickled Eggplant (Side)",
+    "category": "Breakfast",
+    "calories": 100,
+    "protein_g": 1,
+    "carbs_g": 10,
+    "fats_g": 6,
+    "reference_price": 10.0
+  },
+  {
+    "name": "Alexandrian Liver Meal",
+    "category": "Lunch",
+    "calories": 600,
+    "protein_g": 40,
+    "carbs_g": 60,
+    "fats_g": 20,
+    "reference_price": 110.0
+  }
+]
