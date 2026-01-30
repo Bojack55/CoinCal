@@ -1,6 +1,5 @@
 # CoinCal - Nutrition Budget Tracker
 
-![CoinCal Logo](frontend/coincal_mobile/assets/images/logo.png)
 
 A comprehensive nutrition and budget tracking application that helps you master your plate and budget. Built with Flutter (mobile) and Django (backend).
 
