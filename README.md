@@ -173,10 +173,4 @@ Private Project
 
 ## Author
 
-**Bojack55**
-
-## Acknowledgments
-
-- Built with ❤️ for nutrition tracking
-- Logo designed with Golden Ratio principles
-- Egyptian meals database curated for local market
+*Moaz*
