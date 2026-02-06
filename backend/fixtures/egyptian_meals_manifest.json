@@ -1,0 +1,1581 @@
+{
+    "version": "1.1",
+    "description": "Expanded Egyptian Meals Ground Truth - 50 Authentic Street Foods",
+    "meals": [
+        {
+            "id": "koshary",
+            "name_en": "Koshary",
+            "name_ar": "كشري",
+            "serving_weight_g": 400,
+            "ingredients": [
+                {
+                    "usda_id": "20044",
+                    "name": "short_grain_rice",
+                    "ratio": 0.25
+                },
+                {
+                    "usda_id": "16069",
+                    "name": "brown_lentils",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "20420",
+                    "name": "elbow_macaroni",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "16028",
+                    "name": "chickpeas_cooked",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "11529",
+                    "name": "tomato_sauce",
+                    "ratio": 0.20
+                },
+                {
+                    "usda_id": "11215",
+                    "name": "fried_onions",
+                    "ratio": 0.08
+                },
+                {
+                    "usda_id": "02009",
+                    "name": "chili_vinegar",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.02
+                }
+            ]
+        },
+        {
+            "id": "mahshi_waraq_enab",
+            "name_en": "Mahshi Waraq Enab (Stuffed Grape Leaves)",
+            "name_ar": "محشي ورق عنب",
+            "serving_weight_g": 250,
+            "ingredients": [
+                {
+                    "usda_id": "11155",
+                    "name": "grape_leaves",
+                    "ratio": 0.30
+                },
+                {
+                    "usda_id": "20044",
+                    "name": "short_grain_rice",
+                    "ratio": 0.35
+                },
+                {
+                    "usda_id": "11529",
+                    "name": "tomato_paste",
+                    "ratio": 0.08
+                },
+                {
+                    "usda_id": "11282",
+                    "name": "onion_diced",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "02028",
+                    "name": "parsley_fresh",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "02026",
+                    "name": "dill_fresh",
+                    "ratio": 0.03
+                },
+                {
+                    "usda_id": "09152",
+                    "name": "lemon_juice",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.04
+                }
+            ]
+        },
+        {
+            "id": "bechamel_macaroni",
+            "name_en": "Bechamel Macaroni (Macarona Bechamel)",
+            "name_ar": "مكرونة بشاميل",
+            "serving_weight_g": 350,
+            "ingredients": [
+                {
+                    "usda_id": "20420",
+                    "name": "penne_pasta",
+                    "ratio": 0.30
+                },
+                {
+                    "usda_id": "01077",
+                    "name": "whole_milk",
+                    "ratio": 0.25
+                },
+                {
+                    "usda_id": "01001",
+                    "name": "butter",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "20081",
+                    "name": "all_purpose_flour",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "13364",
+                    "name": "ground_beef",
+                    "ratio": 0.25
+                },
+                {
+                    "usda_id": "11282",
+                    "name": "onion_diced",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "02030",
+                    "name": "black_pepper",
+                    "ratio": 0.01
+                },
+                {
+                    "usda_id": "02047",
+                    "name": "salt",
+                    "ratio": 0.01
+                },
+                {
+                    "usda_id": "02025",
+                    "name": "nutmeg",
+                    "ratio": 0.005
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.025
+                }
+            ]
+        },
+        {
+            "id": "foul_mudammas",
+            "name_en": "Foul Mudammas (Egyptian Fava Beans)",
+            "name_ar": "فول مدمس",
+            "serving_weight_g": 300,
+            "ingredients": [
+                {
+                    "usda_id": "16052",
+                    "name": "fava_beans_cooked",
+                    "ratio": 0.60
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "olive_oil",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "09152",
+                    "name": "lemon_juice",
+                    "ratio": 0.08
+                },
+                {
+                    "usda_id": "11215",
+                    "name": "garlic_minced",
+                    "ratio": 0.03
+                },
+                {
+                    "usda_id": "02014",
+                    "name": "cumin_ground",
+                    "ratio": 0.02
+                },
+                {
+                    "usda_id": "02028",
+                    "name": "parsley_fresh",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "11529",
+                    "name": "tomato_diced",
+                    "ratio": 0.08
+                },
+                {
+                    "usda_id": "02047",
+                    "name": "salt",
+                    "ratio": 0.02
+                },
+                {
+                    "usda_id": "11282",
+                    "name": "onion_chopped",
+                    "ratio": 0.02
+                }
+            ]
+        },
+        {
+            "id": "hawawshi",
+            "name_en": "Hawawshi (Egyptian Meat Pie)",
+            "name_ar": "حواوشي",
+            "serving_weight_g": 200,
+            "ingredients": [
+                {
+                    "usda_id": "18064",
+                    "name": "pita_bread",
+                    "ratio": 0.35
+                },
+                {
+                    "usda_id": "13364",
+                    "name": "ground_beef",
+                    "ratio": 0.40
+                },
+                {
+                    "usda_id": "11282",
+                    "name": "onion_diced",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "11333",
+                    "name": "green_pepper_diced",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "02028",
+                    "name": "parsley_fresh",
+                    "ratio": 0.03
+                },
+                {
+                    "usda_id": "02014",
+                    "name": "cumin_ground",
+                    "ratio": 0.01
+                },
+                {
+                    "usda_id": "02009",
+                    "name": "chili_pepper",
+                    "ratio": 0.01
+                },
+                {
+                    "usda_id": "02030",
+                    "name": "black_pepper",
+                    "ratio": 0.01
+                },
+                {
+                    "usda_id": "02047",
+                    "name": "salt",
+                    "ratio": 0.01
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.03
+                }
+            ]
+        },
+        {
+            "id": "kebda_eskandarani",
+            "name_en": "Alexandrian Liver",
+            "name_ar": "كبدة اسكندراني",
+            "serving_weight_g": 250,
+            "ingredients": [
+                {
+                    "usda_id": "13331",
+                    "name": "beef_liver",
+                    "ratio": 0.65
+                },
+                {
+                    "usda_id": "11333",
+                    "name": "green_pepper_diced",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "11215",
+                    "name": "garlic_minced",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.08
+                },
+                {
+                    "usda_id": "09152",
+                    "name": "lemon_juice",
+                    "ratio": 0.04
+                },
+                {
+                    "usda_id": "02014",
+                    "name": "cumin_ground",
+                    "ratio": 0.02
+                },
+                {
+                    "usda_id": "02009",
+                    "name": "chili_pepper",
+                    "ratio": 0.01
+                }
+            ]
+        },
+        {
+            "id": "sogoq_sharqi",
+            "name_en": "Oriental Sausage (Sogoq Sharqi)",
+            "name_ar": "سجق شرقي",
+            "serving_weight_g": 300,
+            "ingredients": [
+                {
+                    "usda_id": "07036",
+                    "name": "oriental_sausage",
+                    "ratio": 0.60
+                },
+                {
+                    "usda_id": "11529",
+                    "name": "tomato_diced",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "11282",
+                    "name": "onion_diced",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "11333",
+                    "name": "green_pepper_diced",
+                    "ratio": 0.08
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "02030",
+                    "name": "black_pepper",
+                    "ratio": 0.02
+                }
+            ]
+        },
+        {
+            "id": "tameya_plain",
+            "name_en": "Tameya (Egyptian Falafel)",
+            "name_ar": "طعمية",
+            "serving_weight_g": 150,
+            "ingredients": [
+                {
+                    "usda_id": "16052",
+                    "name": "tameya_dough",
+                    "ratio": 0.82
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "02047",
+                    "name": "salt",
+                    "ratio": 0.01
+                },
+                {
+                    "usda_id": "02014",
+                    "name": "cumin_ground",
+                    "ratio": 0.02
+                }
+            ]
+        },
+        {
+            "id": "fattah_moza",
+            "name_en": "Egyptian Fattah with Lamb",
+            "name_ar": "فتة لحمة موزة",
+            "serving_weight_g": 450,
+            "ingredients": [
+                {
+                    "usda_id": "20044",
+                    "name": "short_grain_rice",
+                    "ratio": 0.35
+                },
+                {
+                    "usda_id": "13364",
+                    "name": "ground_beef",
+                    "ratio": 0.30
+                },
+                {
+                    "usda_id": "18064",
+                    "name": "pita_bread",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "11529",
+                    "name": "tomato_sauce",
+                    "ratio": 0.12
+                },
+                {
+                    "usda_id": "02009",
+                    "name": "chili_vinegar",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.03
+                }
+            ]
+        },
+        {
+            "id": "mombar",
+            "name_en": "Mombar (Stuffed Intestines)",
+            "name_ar": "ممبار",
+            "serving_weight_g": 300,
+            "ingredients": [
+                {
+                    "usda_id": "13401",
+                    "name": "beef_tripe",
+                    "ratio": 0.40
+                },
+                {
+                    "usda_id": "20044",
+                    "name": "short_grain_rice",
+                    "ratio": 0.40
+                },
+                {
+                    "usda_id": "11529",
+                    "name": "tomato_paste",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "02028",
+                    "name": "parsley_fresh",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "foul_bi_zeit_har",
+            "name_en": "Foul with Flaxseed Oil (Zeit Har)",
+            "name_ar": "فول بالزيت الحار",
+            "serving_weight_g": 250,
+            "ingredients": [
+                {
+                    "usda_id": "16052",
+                    "name": "fava_beans_cooked",
+                    "ratio": 0.85
+                },
+                {
+                    "usda_id": "04114",
+                    "name": "flaxseed_oil",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "02014",
+                    "name": "cumin_ground",
+                    "ratio": 0.03
+                },
+                {
+                    "usda_id": "02047",
+                    "name": "salt",
+                    "ratio": 0.02
+                }
+            ]
+        },
+        {
+            "id": "tahini_salad",
+            "name_en": "Tahini Salad",
+            "name_ar": "سلطة طحينة",
+            "serving_weight_g": 100,
+            "ingredients": [
+                {
+                    "usda_id": "12198",
+                    "name": "tahini",
+                    "ratio": 0.60
+                },
+                {
+                    "usda_id": "02009",
+                    "name": "chili_vinegar",
+                    "ratio": 0.20
+                },
+                {
+                    "usda_id": "11215",
+                    "name": "garlic_minced",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "02014",
+                    "name": "cumin_ground",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "02047",
+                    "name": "salt",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "shrimp_sand_baladi",
+            "name_en": "Fried Shrimp Baladi Sandwich",
+            "name_ar": "ساندوتش جمبري بلدي",
+            "serving_weight_g": 180,
+            "ingredients": [
+                {
+                    "usda_id": "18064",
+                    "name": "pita_bread",
+                    "ratio": 0.40
+                },
+                {
+                    "usda_id": "15149",
+                    "name": "shrimp_raw",
+                    "ratio": 0.45
+                },
+                {
+                    "usda_id": "12198",
+                    "name": "tahini",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "basbousa",
+            "name_en": "Basbousa (Semolina Cake)",
+            "name_ar": "بسبوسة",
+            "serving_weight_g": 120,
+            "ingredients": [
+                {
+                    "usda_id": "20066",
+                    "name": "semolina",
+                    "ratio": 0.60
+                },
+                {
+                    "usda_id": "19335",
+                    "name": "sugar",
+                    "ratio": 0.20
+                },
+                {
+                    "usda_id": "01001",
+                    "name": "butter",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "01123",
+                    "name": "whole_milk",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "om_ali",
+            "name_en": "Om Ali (Egyptian Bread Pudding)",
+            "name_ar": "أم علي",
+            "serving_weight_g": 250,
+            "ingredients": [
+                {
+                    "usda_id": "18064",
+                    "name": "pita_bread",
+                    "ratio": 0.20
+                },
+                {
+                    "usda_id": "01077",
+                    "name": "whole_milk",
+                    "ratio": 0.50
+                },
+                {
+                    "usda_id": "01053",
+                    "name": "heavy_cream",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "19335",
+                    "name": "sugar",
+                    "ratio": 0.15
+                }
+            ]
+        },
+        {
+            "id": "mesakaa",
+            "name_en": "Mesaka'a (Eggplant with Tomato)",
+            "name_ar": "مسقعة",
+            "serving_weight_g": 300,
+            "ingredients": [
+                {
+                    "usda_id": "11209",
+                    "name": "eggplant_raw",
+                    "ratio": 0.60
+                },
+                {
+                    "usda_id": "11529",
+                    "name": "tomato_sauce",
+                    "ratio": 0.20
+                },
+                {
+                    "usda_id": "13364",
+                    "name": "ground_beef",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "11215",
+                    "name": "garlic_minced",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "honey_cream_sand",
+            "name_en": "Sakalyans (Honey & Cream Sandwich)",
+            "name_ar": "ساندوتش سكلانس",
+            "serving_weight_g": 150,
+            "ingredients": [
+                {
+                    "usda_id": "18064",
+                    "name": "pita_bread",
+                    "ratio": 0.40
+                },
+                {
+                    "usda_id": "19296",
+                    "name": "honey",
+                    "ratio": 0.25
+                },
+                {
+                    "usda_id": "01053",
+                    "name": "heavy_cream",
+                    "ratio": 0.30
+                },
+                {
+                    "usda_id": "19304",
+                    "name": "molasses",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "foul_bi_sogoq",
+            "name_en": "Foul with Oriental Sausage",
+            "name_ar": "فول بالسجق",
+            "serving_weight_g": 300,
+            "ingredients": [
+                {
+                    "usda_id": "16052",
+                    "name": "fava_beans_cooked",
+                    "ratio": 0.60
+                },
+                {
+                    "usda_id": "07036",
+                    "name": "oriental_sausage",
+                    "ratio": 0.25
+                },
+                {
+                    "usda_id": "11529",
+                    "name": "tomato_diced",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "calamari_fried_sand",
+            "name_en": "Fried Calamari Sandwich",
+            "name_ar": "ساندوتش سبيط مقلي",
+            "serving_weight_g": 180,
+            "ingredients": [
+                {
+                    "usda_id": "18064",
+                    "name": "pita_bread",
+                    "ratio": 0.40
+                },
+                {
+                    "usda_id": "15175",
+                    "name": "calamari_raw",
+                    "ratio": 0.45
+                },
+                {
+                    "usda_id": "12198",
+                    "name": "tahini",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "tameya_stuffed",
+            "name_en": "Stuffed Tameya",
+            "name_ar": "طعمية محشية",
+            "serving_weight_g": 160,
+            "ingredients": [
+                {
+                    "usda_id": "16052",
+                    "name": "tameya_dough",
+                    "ratio": 0.70
+                },
+                {
+                    "usda_id": "11282",
+                    "name": "onion_diced",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "02009",
+                    "name": "chili_pepper",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.15
+                }
+            ]
+        },
+        {
+            "id": "liver_sand_baladi",
+            "name_en": "Liver Sandwich Baladi",
+            "name_ar": "ساندوتش كبدة بلدي",
+            "serving_weight_g": 120,
+            "ingredients": [
+                {
+                    "usda_id": "18064",
+                    "name": "pita_bread",
+                    "ratio": 0.45
+                },
+                {
+                    "usda_id": "13331",
+                    "name": "beef_liver",
+                    "ratio": 0.45
+                },
+                {
+                    "usda_id": "12198",
+                    "name": "tahini",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "09152",
+                    "name": "lemon_juice",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "sausage_sand_baladi",
+            "name_en": "Sausage Sandwich Baladi",
+            "name_ar": "ساندوتش سجق بلدي",
+            "serving_weight_g": 130,
+            "ingredients": [
+                {
+                    "usda_id": "18064",
+                    "name": "pita_bread",
+                    "ratio": 0.45
+                },
+                {
+                    "usda_id": "07036",
+                    "name": "oriental_sausage",
+                    "ratio": 0.45
+                },
+                {
+                    "usda_id": "12198",
+                    "name": "tahini",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "11529",
+                    "name": "tomato_sauce",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "mix_grill_platter",
+            "name_en": "Mixed Grill Platter",
+            "name_ar": "طبق مشويات مشكل",
+            "serving_weight_g": 500,
+            "ingredients": [
+                {
+                    "usda_id": "13364",
+                    "name": "ground_beef",
+                    "ratio": 0.40
+                },
+                {
+                    "usda_id": "05011",
+                    "name": "chicken_pane",
+                    "ratio": 0.40
+                },
+                {
+                    "usda_id": "11282",
+                    "name": "onion_diced",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "02028",
+                    "name": "parsley_fresh",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "02047",
+                    "name": "salt",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "fiteer_meshaltet",
+            "name_en": "Fiteer Meshaltet (Plain)",
+            "name_ar": "فطير مشلتت",
+            "serving_weight_g": 400,
+            "ingredients": [
+                {
+                    "usda_id": "20081",
+                    "name": "all_purpose_flour",
+                    "ratio": 0.60
+                },
+                {
+                    "usda_id": "01001",
+                    "name": "butter",
+                    "ratio": 0.30
+                },
+                {
+                    "usda_id": "02047",
+                    "name": "salt",
+                    "ratio": 0.02
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.08
+                }
+            ]
+        },
+        {
+            "id": "kaware_soup",
+            "name_en": "Kaware' Soup (Trotters)",
+            "name_ar": "شوربة كوارع",
+            "serving_weight_g": 400,
+            "ingredients": [
+                {
+                    "usda_id": "13401",
+                    "name": "beef_tripe",
+                    "ratio": 0.50
+                },
+                {
+                    "usda_id": "11282",
+                    "name": "onion_chopped",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "11215",
+                    "name": "garlic_minced",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "02030",
+                    "name": "black_pepper",
+                    "ratio": 0.02
+                },
+                {
+                    "usda_id": "02047",
+                    "name": "salt",
+                    "ratio": 0.03
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.30
+                }
+            ]
+        },
+        {
+            "id": "rice_pudding",
+            "name_en": "Egyptian Rice Pudding",
+            "name_ar": "أرز باللبن",
+            "serving_weight_g": 200,
+            "ingredients": [
+                {
+                    "usda_id": "01077",
+                    "name": "whole_milk",
+                    "ratio": 0.65
+                },
+                {
+                    "usda_id": "20044",
+                    "name": "short_grain_rice",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "19335",
+                    "name": "sugar",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "20066",
+                    "name": "semolina",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "zalabya",
+            "name_en": "Zalabya (Loukoumades)",
+            "name_ar": "زلابية",
+            "serving_weight_g": 150,
+            "ingredients": [
+                {
+                    "usda_id": "20081",
+                    "name": "all_purpose_flour",
+                    "ratio": 0.60
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.20
+                },
+                {
+                    "usda_id": "19335",
+                    "name": "sugar",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "02047",
+                    "name": "salt",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "foul_bi_beid",
+            "name_en": "Foul with Fried Egg",
+            "name_ar": "فول بالبيض",
+            "serving_weight_g": 350,
+            "ingredients": [
+                {
+                    "usda_id": "16052",
+                    "name": "fava_beans_cooked",
+                    "ratio": 0.70
+                },
+                {
+                    "usda_id": "01123",
+                    "name": "egg",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "01001",
+                    "name": "butter",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "02047",
+                    "name": "salt",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "mesakaa_bi_lahma",
+            "name_en": "Mesaka'a with Minced Meat",
+            "name_ar": "مسقعة باللحمة المفرومة",
+            "serving_weight_g": 400,
+            "ingredients": [
+                {
+                    "usda_id": "11209",
+                    "name": "eggplant_raw",
+                    "ratio": 0.50
+                },
+                {
+                    "usda_id": "13364",
+                    "name": "ground_beef",
+                    "ratio": 0.25
+                },
+                {
+                    "usda_id": "11529",
+                    "name": "tomato_sauce",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.10
+                }
+            ]
+        },
+        {
+            "id": "baba_ganoush",
+            "name_en": "Baba Ganoush",
+            "name_ar": "بابا غنوج",
+            "serving_weight_g": 200,
+            "ingredients": [
+                {
+                    "usda_id": "11209",
+                    "name": "eggplant_raw",
+                    "ratio": 0.70
+                },
+                {
+                    "usda_id": "12198",
+                    "name": "tahini",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "11215",
+                    "name": "garlic_minced",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "09152",
+                    "name": "lemon_juice",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "olive_oil",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "foul_bi_salata",
+            "name_en": "Foul with Salad",
+            "name_ar": "فول سلطة",
+            "serving_weight_g": 300,
+            "ingredients": [
+                {
+                    "usda_id": "16052",
+                    "name": "fava_beans_cooked",
+                    "ratio": 0.75
+                },
+                {
+                    "usda_id": "11529",
+                    "name": "tomato_diced",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "11205",
+                    "name": "cucumber",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "11282",
+                    "name": "onion_chopped",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "tameya_bi_tahini",
+            "name_en": "Tameya with Tahini",
+            "name_ar": "طعمية بالطحينة",
+            "serving_weight_g": 180,
+            "ingredients": [
+                {
+                    "usda_id": "16052",
+                    "name": "tameya_dough",
+                    "ratio": 0.70
+                },
+                {
+                    "usda_id": "12198",
+                    "name": "tahini",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.15
+                }
+            ]
+        },
+        {
+            "id": "kofta_sand_baladi",
+            "name_en": "Kofta Sandwich Baladi",
+            "name_ar": "ساندوتش كفتة بلدي",
+            "serving_weight_g": 150,
+            "ingredients": [
+                {
+                    "usda_id": "18064",
+                    "name": "pita_bread",
+                    "ratio": 0.40
+                },
+                {
+                    "usda_id": "13364",
+                    "name": "ground_beef",
+                    "ratio": 0.45
+                },
+                {
+                    "usda_id": "12198",
+                    "name": "tahini",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "02028",
+                    "name": "parsley_fresh",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "tarab",
+            "name_en": "Tarab (Kofta with Fat Layer)",
+            "name_ar": "طرب",
+            "serving_weight_g": 250,
+            "ingredients": [
+                {
+                    "usda_id": "13364",
+                    "name": "ground_beef",
+                    "ratio": 0.60
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.25
+                },
+                {
+                    "usda_id": "11282",
+                    "name": "onion_diced",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "02047",
+                    "name": "salt",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "shish_tawook",
+            "name_en": "Shish Tawook (Grilled Chicken)",
+            "name_ar": "شيش طاووق",
+            "serving_weight_g": 300,
+            "ingredients": [
+                {
+                    "usda_id": "05011",
+                    "name": "chicken_pane",
+                    "ratio": 0.70
+                },
+                {
+                    "usda_id": "11282",
+                    "name": "onion_diced",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "11333",
+                    "name": "green_pepper_diced",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "01123",
+                    "name": "whole_milk",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "fiteer_honey",
+            "name_en": "Sweet Fiteer with Honey",
+            "name_ar": "فطير بالعسل",
+            "serving_weight_g": 350,
+            "ingredients": [
+                {
+                    "usda_id": "20081",
+                    "name": "all_purpose_flour",
+                    "ratio": 0.50
+                },
+                {
+                    "usda_id": "19296",
+                    "name": "honey",
+                    "ratio": 0.25
+                },
+                {
+                    "usda_id": "01001",
+                    "name": "butter",
+                    "ratio": 0.25
+                }
+            ]
+        },
+        {
+            "id": "mesakaa_bi_خل_وتوم",
+            "name_en": "Mesaka'a with Garlic & Vinegar",
+            "name_ar": "مسقعة بالخل والثوم",
+            "serving_weight_g": 250,
+            "ingredients": [
+                {
+                    "usda_id": "11209",
+                    "name": "eggplant_raw",
+                    "ratio": 0.70
+                },
+                {
+                    "usda_id": "02009",
+                    "name": "chili_vinegar",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "11215",
+                    "name": "garlic_minced",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "pigeon_stuffed",
+            "name_en": "Stuffed Pigeon (Hamam Mahshi)",
+            "name_ar": "حمام محشي",
+            "serving_weight_g": 400,
+            "ingredients": [
+                {
+                    "usda_id": "05011",
+                    "name": "chicken_pane",
+                    "ratio": 0.50
+                },
+                {
+                    "usda_id": "20044",
+                    "name": "short_grain_rice",
+                    "ratio": 0.35
+                },
+                {
+                    "usda_id": "01001",
+                    "name": "butter",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "02047",
+                    "name": "salt",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "fried_fish_bolti",
+            "name_en": "Fried Bolti Fish",
+            "name_ar": "سمك بلطي مقلي",
+            "serving_weight_g": 450,
+            "ingredients": [
+                {
+                    "usda_id": "15175",
+                    "name": "calamari_raw",
+                    "ratio": 0.70
+                },
+                {
+                    "usda_id": "20081",
+                    "name": "all_purpose_flour",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "11215",
+                    "name": "garlic_minced",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "sayadeya_rice",
+            "name_en": "Sayadeya Rice (Fisherman's Rice)",
+            "name_ar": "أرز صيادية",
+            "serving_weight_g": 250,
+            "ingredients": [
+                {
+                    "usda_id": "20044",
+                    "name": "short_grain_rice",
+                    "ratio": 0.75
+                },
+                {
+                    "usda_id": "11282",
+                    "name": "onion_chopped",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.07
+                },
+                {
+                    "usda_id": "19335",
+                    "name": "sugar",
+                    "ratio": 0.03
+                }
+            ]
+        },
+        {
+            "id": "fiteer_sugar_milk",
+            "name_en": "Fiteer with Sugar & Milk",
+            "name_ar": "فطير بالسكر واللبن",
+            "serving_weight_g": 300,
+            "ingredients": [
+                {
+                    "usda_id": "20081",
+                    "name": "all_purpose_flour",
+                    "ratio": 0.50
+                },
+                {
+                    "usda_id": "01123",
+                    "name": "whole_milk",
+                    "ratio": 0.25
+                },
+                {
+                    "usda_id": "19335",
+                    "name": "sugar",
+                    "ratio": 0.25
+                }
+            ]
+        },
+        {
+            "id": "molasses_tahini",
+            "name_en": "Molasses with Tahini (Assal bi Tahini)",
+            "name_ar": "عسل بطحينة",
+            "serving_weight_g": 100,
+            "ingredients": [
+                {
+                    "usda_id": "19304",
+                    "name": "molasses",
+                    "ratio": 0.70
+                },
+                {
+                    "usda_id": "12198",
+                    "name": "tahini",
+                    "ratio": 0.30
+                }
+            ]
+        },
+        {
+            "id": "eshta_halawa_sand",
+            "name_en": "Halawa & Eshta Sandwich",
+            "name_ar": "ساندوتش قشطة وحلاوة",
+            "serving_weight_g": 120,
+            "ingredients": [
+                {
+                    "usda_id": "18064",
+                    "name": "pita_bread",
+                    "ratio": 0.40
+                },
+                {
+                    "usda_id": "01053",
+                    "name": "heavy_cream",
+                    "ratio": 0.30
+                },
+                {
+                    "usda_id": "19335",
+                    "name": "sugar",
+                    "ratio": 0.30
+                }
+            ]
+        },
+        {
+            "id": "baked_sweet_potato",
+            "name_en": "Baked Sweet Potato",
+            "name_ar": "بطاطا حلوة مشوية",
+            "serving_weight_g": 200,
+            "ingredients": [
+                {
+                    "usda_id": "11507",
+                    "name": "potato",
+                    "ratio": 0.95
+                },
+                {
+                    "usda_id": "19335",
+                    "name": "sugar",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "foul_bi_samma",
+            "name_en": "Foul with Ghee (Samma)",
+            "name_ar": "فول بالسمنة",
+            "serving_weight_g": 300,
+            "ingredients": [
+                {
+                    "usda_id": "16052",
+                    "name": "fava_beans_cooked",
+                    "ratio": 0.85
+                },
+                {
+                    "usda_id": "01001",
+                    "name": "butter",
+                    "ratio": 0.12
+                },
+                {
+                    "usda_id": "02047",
+                    "name": "salt",
+                    "ratio": 0.03
+                }
+            ]
+        },
+        {
+            "id": "kebda_sand_radda",
+            "name_en": "Fried Liver with Bran (Radda)",
+            "name_ar": "كبدة بالردة",
+            "serving_weight_g": 180,
+            "ingredients": [
+                {
+                    "usda_id": "18064",
+                    "name": "pita_bread",
+                    "ratio": 0.40
+                },
+                {
+                    "usda_id": "13331",
+                    "name": "beef_liver",
+                    "ratio": 0.50
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.10
+                }
+            ]
+        },
+        {
+            "id": "sausage_with_veggies",
+            "name_en": "Oriental Sausage Platter with Veggies",
+            "name_ar": "طبق سجق بالخضروات",
+            "serving_weight_g": 300,
+            "ingredients": [
+                {
+                    "usda_id": "07036",
+                    "name": "oriental_sausage",
+                    "ratio": 0.60
+                },
+                {
+                    "usda_id": "11529",
+                    "name": "tomato_diced",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "11282",
+                    "name": "onion_chopped",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "11333",
+                    "name": "green_pepper_diced",
+                    "ratio": 0.10
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "tameya_sand_baladi",
+            "name_en": "Tameya Sandwich",
+            "name_ar": "ساندوتش طعمية",
+            "serving_weight_g": 150,
+            "ingredients": [
+                {
+                    "usda_id": "18064",
+                    "name": "pita_bread",
+                    "ratio": 0.40
+                },
+                {
+                    "usda_id": "16052",
+                    "name": "tameya_dough",
+                    "ratio": 0.45
+                },
+                {
+                    "usda_id": "11529",
+                    "name": "tomato_diced",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "12198",
+                    "name": "tahini",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "fried_eggplant_garlic",
+            "name_en": "Fried Eggplant with Garlic",
+            "name_ar": "باذنجان مقلي بالتوم",
+            "serving_weight_g": 200,
+            "ingredients": [
+                {
+                    "usda_id": "11209",
+                    "name": "eggplant_raw",
+                    "ratio": 0.75
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.15
+                },
+                {
+                    "usda_id": "11215",
+                    "name": "garlic_minced",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "02009",
+                    "name": "chili_vinegar",
+                    "ratio": 0.05
+                }
+            ]
+        },
+        {
+            "id": "kofta_rice_balls",
+            "name_en": "Kofta Rice (Koftet Roz)",
+            "name_ar": "كفتة أرز",
+            "serving_weight_g": 350,
+            "ingredients": [
+                {
+                    "usda_id": "13364",
+                    "name": "ground_beef",
+                    "ratio": 0.35
+                },
+                {
+                    "usda_id": "20044",
+                    "name": "short_grain_rice",
+                    "ratio": 0.35
+                },
+                {
+                    "usda_id": "11529",
+                    "name": "tomato_sauce",
+                    "ratio": 0.20
+                },
+                {
+                    "usda_id": "11282",
+                    "name": "onion_diced",
+                    "ratio": 0.05
+                },
+                {
+                    "usda_id": "04053",
+                    "name": "vegetable_oil",
+                    "ratio": 0.05
+                }
+            ]
+        }
+    ],
+    "notes": {
+        "ratio_rule": "All ratios must sum to 1.0 for each meal",
+        "usda_id": "Reference to USDA FoodData Central for ground truth nutrition",
+        "calculation": "Total nutrient = SUM(ingredient_ratio * weight_g * nutrient_per_100g / 100)"
+    }
+}
