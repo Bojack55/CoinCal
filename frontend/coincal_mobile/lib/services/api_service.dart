@@ -15,12 +15,18 @@ class ApiService {
   static const String _tokenKey = 'auth_token';
   static String? token; // To be set after login
 
+  // In-memory cache
+  static final Map<String, dynamic> _cache = {};
+
   static Map<String, String> get _headers => {
     'Content-Type': 'application/json',
     if (token != null) 'Authorization': 'Token $token',
   };
 
-  static Future<List<Meal>> fetchFoodItems() async {
+  static Future<List<Meal>> fetchFoodItems({bool forceRefresh = false}) async {
+    if (!forceRefresh && _cache.containsKey('foods')) {
+      return _cache['foods'] as List<Meal>;
+    }
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/foods/'),
@@ -29,7 +35,11 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final List data = json.decode(response.body);
-        return data.map((item) => Meal.fromJson(item)).toList();
+        final List<Meal> meals = data
+            .map((item) => Meal.fromJson(item))
+            .toList();
+        _cache['foods'] = meals;
+        return meals;
       } else {
         throw Exception('Failed to fetch food items: ${response.statusCode}');
       }
@@ -114,14 +124,23 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> getDashboard({String? date}) async {
+  static Future<Map<String, dynamic>> getDashboard({
+    String? date,
+    bool forceRefresh = false,
+  }) async {
+    final cacheKey = 'dashboard_${date ?? 'today'}';
+    if (!forceRefresh && _cache.containsKey(cacheKey)) {
+      return _cache[cacheKey] as Map<String, dynamic>;
+    }
     try {
       final url = date != null
           ? '$baseUrl/dashboard/?date=$date'
           : '$baseUrl/dashboard/';
       final response = await http.get(Uri.parse(url), headers: _headers);
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final data = json.decode(response.body);
+        _cache[cacheKey] = data;
+        return data;
       } else {
         throw Exception('Dashboard load failed: ${response.statusCode}');
       }
@@ -202,9 +221,12 @@ class ApiService {
 
   static Future<void> logout() async {
     token = null;
+    _cache.clear();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
   }
+
+  static void clearCache() => _cache.clear();
 
   static Future<void> register({
     required String username,
@@ -401,14 +423,19 @@ class ApiService {
     }
   }
 
-  static Future<List<dynamic>> getSmartFeed() async {
+  static Future<List<dynamic>> getSmartFeed({bool forceRefresh = false}) async {
+    if (!forceRefresh && _cache.containsKey('smart_feed')) {
+      return _cache['smart_feed'] as List<dynamic>;
+    }
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/smart-feed/'),
         headers: _headers,
       );
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final data = json.decode(response.body);
+        _cache['smart_feed'] = data;
+        return data;
       } else {
         throw Exception('Failed to fetch smart feed');
       }
