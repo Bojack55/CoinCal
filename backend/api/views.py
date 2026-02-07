@@ -38,10 +38,12 @@ def _get_daily_metrics(profile, query_date):
         dict: Contains 'summary' (DailySummary), 'macros' (dict with protein/carbs/fats)
     """
     summary, _ = DailySummary.objects.get_or_create(user=profile, date=query_date)
-    # Optimize N+1: select related meal data
+    # Optimize N+1: select related meal data and prefetch Egyptian meal components
     meal_logs = MealLog.objects.filter(
         user=profile, date=query_date
-    ).select_related('meal', 'custom_meal', 'egyptian_meal')
+    ).select_related('meal', 'custom_meal', 'egyptian_meal').prefetch_related(
+        'egyptian_meal__recipe_items__ingredient'
+    )
     
     protein = Decimal('0')
     carbs = Decimal('0')
@@ -617,6 +619,9 @@ def get_dashboard(request):
     user = request.user
     full_name = f"{user.first_name} {user.last_name}".strip() if user.first_name else user.username
     
+    status_obj = DayStatus.objects.filter(user=profile, date=query_date).first()
+    day_status = status_obj.status if status_obj else 'standard'
+    
     return Response({
         "date": query_date.isoformat(),
         "budget": {
@@ -646,7 +651,7 @@ def get_dashboard(request):
         "body_fat": float(profile.body_fat_percentage) if profile.body_fat_percentage else None,
         "diet_mode": profile.diet_mode,
         "weight_history": WeightLogSerializer(profile.weight_logs.all().order_by('date'), many=True).data,
-        "day_status": DayStatus.objects.filter(user=profile, date=query_date).first().status if DayStatus.objects.filter(user=profile, date=query_date).exists() else 'standard'
+        "day_status": day_status
     })
 
 
@@ -1611,13 +1616,13 @@ def get_smart_feed(request):
     user_location = request.user.profile.current_location
     
     # 1. High Efficiency Suggestions (Global/Market)
-    market_items = MarketPrice.objects.all().select_related('meal', 'vendor')
+    # Optimization: Filter by price and sample top 50 to avoid fetching entire DB
+    market_items = MarketPrice.objects.filter(price_egp__gt=0).select_related('meal', 'vendor').order_by('?')[:50]
     efficiency_list = []
     for mp in market_items:
         price = float(mp.price_egp)
-        if price > 0:
-            eff = float(mp.meal.calories) / price
-            efficiency_list.append((mp, eff))
+        eff = float(mp.meal.calories) / price
+        efficiency_list.append((mp, eff))
     
     efficiency_list.sort(key=lambda x: x[1], reverse=True)
     top_efficient = []
