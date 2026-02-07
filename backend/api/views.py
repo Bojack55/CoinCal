@@ -1266,6 +1266,7 @@ def generate_plan(request):
     if not pool_breakfast: pool_breakfast = pool_lunch + pool_dinner
     if not pool_lunch: pool_lunch = pool_breakfast + pool_dinner
     if not pool_dinner: pool_dinner = pool_breakfast + pool_lunch
+    if not pool_snack: pool_snack = pool_breakfast + pool_lunch
     
     all_candidates = pool_breakfast + pool_lunch + pool_dinner + pool_snack
     if not all_candidates:
@@ -1403,7 +1404,7 @@ def generate_plan(request):
     
     slots = configs.get(meals_count, configs[3])
     
-    iterations = 3000
+    iterations = 5000
     for _ in range(iterations):
         meal_groups = {}
         total_price = 0
@@ -1419,8 +1420,8 @@ def generate_plan(request):
             max_sides = slot['sides']
             
             if not s_pool: 
-                # If pool empty (e.g. no snacks), just skip slot
-                continue
+                # If pool empty, try fallback to all_candidates
+                s_pool = all_candidates
             
             # Pick Main
             main = random.choice(s_pool)
@@ -1460,20 +1461,14 @@ def generate_plan(request):
         if not valid_iter:
             continue
             
-        # --- SCORING logic (Same as before) ---
-        budget_score = total_price / daily_budget
+        # --- SCORING logic ---
+        # Reward Higher Budget Usage (closer to 1.0 is better, so (1.0 - budget_score) is lower/better)
+        budget_comp = 1.0 - (total_price / daily_budget)
         
-        if target_weight < current_weight:
-            if total_cals > target_calories: cal_penalty = (total_cals - target_calories) / target_calories
-            else: cal_penalty = 0.0
-        elif target_weight > current_weight:
-            if total_cals < target_calories * 0.9: cal_penalty = (target_calories - total_cals) / target_calories
-            else: cal_penalty = 0.0
-        else:
-            cal_penalty = abs(target_calories - total_cals) / target_calories
+        # Stricter Calorie Matching (Minimize absolute error from target)
+        cal_penalty = abs(target_calories - total_cals) / target_calories
         
-        protein_bonus = total_prot / 200.0
-        score = budget_score + cal_penalty - protein_bonus
+        score = budget_comp + (cal_penalty * 2.5) - (protein_bonus * 0.5)
         
         if score < best_score:
             best_score = score
