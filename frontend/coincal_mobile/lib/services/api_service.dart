@@ -5,7 +5,7 @@ import '../models/meal_model.dart';
 class ApiService {
   // Environment-based API URL
   // Dev: flutter run (uses default localhost)
-  // Prod: flutter build --dart-define=API_URL=http://Moaz55.pythonanywhere.com/api
+  // Prod: flutter build --dart-define=API_URL=https://moaz55.pythonanywhere.com/api
   static const String baseUrl = String.fromEnvironment(
     'API_URL',
     defaultValue: 'http://127.0.0.1:8000/api',
