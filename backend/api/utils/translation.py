@@ -5,7 +5,11 @@ Uses deep-translator library for Arabic ↔ English translation.
 Auto-detects language and translates meal names on creation.
 """
 import re
-from deep_translator import GoogleTranslator
+try:
+    from deep_translator import GoogleTranslator
+    HAS_TRANSLATOR = True
+except ImportError:
+    HAS_TRANSLATOR = False
 
 
 def contains_arabic(text):
@@ -42,6 +46,12 @@ def auto_translate_meal_name(name):
     
     name = name.strip()
     
+    if not HAS_TRANSLATOR:
+        if contains_arabic(name):
+            return (None, name)
+        else:
+            return (name, None)
+
     try:
         if contains_arabic(name):
             # Input is Arabic → Translate to English

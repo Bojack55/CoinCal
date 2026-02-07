@@ -553,7 +553,7 @@ def create_custom_meal_from_ingredients(request):
     per_serving_price = total_price / servings
     
     # Auto-translate meal name to both languages
-    from api.utils.translation import auto_translate_meal_name
+    from .utils.translation import auto_translate_meal_name
     english_name, arabic_name = auto_translate_meal_name(name)
     
     # Create the custom meal with bilingual names
