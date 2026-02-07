@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/meal_model.dart';
 
 class ApiService {
@@ -11,6 +12,7 @@ class ApiService {
     defaultValue: 'http://127.0.0.1:8000/api',
   );
 
+  static const String _tokenKey = 'auth_token';
   static String? token; // To be set after login
 
   static Map<String, String> get _headers => {
@@ -178,13 +180,30 @@ class ApiService {
       );
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        token = data['token'];
+        await saveToken(data['token']);
       } else {
         throw Exception('Login failed: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Login error: $e');
     }
+  }
+
+  static Future<void> saveToken(String t) async {
+    token = t;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tokenKey, t);
+  }
+
+  static Future<void> loadToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    token = prefs.getString(_tokenKey);
+  }
+
+  static Future<void> logout() async {
+    token = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
   }
 
   static Future<void> register({
@@ -221,7 +240,7 @@ class ApiService {
 
       if (response.statusCode == 201) {
         final data = json.decode(response.body);
-        token = data['token'];
+        await saveToken(data['token']);
       } else {
         final errorData = json.decode(response.body);
         throw Exception(errorData['error'] ?? 'Registration failed');
