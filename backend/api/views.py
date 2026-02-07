@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from decimal import Decimal
 
 from .models import (
@@ -366,8 +366,10 @@ def search_food(request):
     user_location = request.user.profile.current_location
 
     # 1. Search Global Meals (MarketPrice)
-    # We search BaseMeal by name, then look up MarketPrice
-    market_prices = MarketPrice.objects.filter(meal__name__icontains=query)
+    # We search BaseMeal by name (bilingual), then look up MarketPrice
+    market_prices = MarketPrice.objects.filter(
+        Q(meal__name__icontains=query) | Q(meal__name_ar__icontains=query)
+    )
     
     # Filter to get best price per meal for the search results
     # Priority: Local -> Cairo -> Any
@@ -405,8 +407,10 @@ def search_food(request):
             })
             seen_meals.add(mp.meal_id)
 
-    # 2. Search Egyptian Meals
-    egyptian_meals = EgyptianMeal.objects.filter(name_en__icontains=query)
+    # 2. Search Egyptian Meals (bilingual)
+    egyptian_meals = EgyptianMeal.objects.filter(
+        Q(name_en__icontains=query) | Q(name_ar__icontains=query)
+    )
     egyptian_results = []
     from .serializers import EgyptianMealUnifiedSerializer
     for em in egyptian_meals:
