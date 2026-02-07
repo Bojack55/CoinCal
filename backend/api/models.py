@@ -20,8 +20,8 @@ class TimeStampedModel(models.Model):
 
 
 class AbstractMeal(TimeStampedModel):
-    name = models.CharField(max_length=100, default='Unnamed Meal')
-    name_ar = models.CharField(max_length=100, null=True, blank=True, help_text='Arabic meal name')
+    name = models.CharField(max_length=100, default='Unnamed Meal', db_index=True)
+    name_ar = models.CharField(max_length=100, null=True, blank=True, help_text='Arabic meal name', db_index=True)
     calories = models.IntegerField(default=0)
     protein_g = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0.0'))
     carbs_g = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0.0'))
@@ -35,7 +35,7 @@ class AbstractMeal(TimeStampedModel):
 
 
 class BaseMeal(AbstractMeal):
-    name_ar = models.CharField(max_length=100, null=True, blank=True)
+    name_ar = models.CharField(max_length=100, null=True, blank=True, db_index=True)
     meal_type = models.CharField(max_length=20, default='Snack', choices=[
         ('Breakfast', 'Breakfast'),
         ('Lunch', 'Lunch'),
@@ -311,8 +311,8 @@ class EgyptianMeal(TimeStampedModel):
     No static calorie count - all values derived from composition.
     """
     meal_id = models.CharField(max_length=50, unique=True)  # e.g., 'koshary'
-    name_en = models.CharField(max_length=100)
-    name_ar = models.CharField(max_length=100, null=True, blank=True)
+    name_en = models.CharField(max_length=100, db_index=True)
+    name_ar = models.CharField(max_length=100, null=True, blank=True, db_index=True)
     default_serving_weight_g = models.IntegerField(default=300)
     image_url = models.URLField(null=True, blank=True)
     description = models.TextField(null=True, blank=True)

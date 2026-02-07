@@ -358,6 +358,8 @@ def get_food_list(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def search_food(request):
     query = request.query_params.get('query', '')
     if not query:
@@ -366,28 +368,38 @@ def search_food(request):
     user_location = request.user.profile.current_location
 
     # 1. Search Global Meals (MarketPrice)
-    # We search BaseMeal by name (bilingual), then look up MarketPrice
+    # Optimization: Use select_related and prefetch_related to solve N+1 issue
+    # We find all MarketPrices for the searched meals in one go
     market_prices = MarketPrice.objects.filter(
         Q(meal__name__icontains=query) | Q(meal__name_ar__icontains=query)
-    )
+    ).select_related('meal', 'vendor').order_by('meal_id', 'price_egp')
     
-    # Filter to get best price per meal for the search results
-    # Priority: Local -> Cairo -> Any
     global_results = []
     seen_meals = set()
     
+    # Efficiently select the best price per meal from the pre-fetched list
+    # The order_by('meal_id', 'price_egp') ensures we see prices for a meal together
     for mp in market_prices:
         if mp.meal_id in seen_meals:
             continue
             
-        # For each meal found, get the best price for this user
-        best_mp = MarketPrice.objects.filter(meal=mp.meal, vendor__city=user_location).first()
+        # We want the best price: Local > Cairo > Any
+        # Since we have all prices for this meal in 'market_prices', we can find it without extra queries
+        # But Filtered queries are still cleaner if we have a lot of data. 
+        # For small-medium data, finding in-memory is faster.
+        # Fallback logic:
+        
+        # Determine the best available price for this meal from the pre-fetched set
+        meal_prices = [p for p in market_prices if p.meal_id == mp.meal_id]
+        
+        best_mp = next((p for p in meal_prices if p.vendor.city == user_location), None)
         is_estimated = False
+        
         if not best_mp:
-            best_mp = MarketPrice.objects.filter(meal=mp.meal, vendor__city='Cairo').first()
+            best_mp = next((p for p in meal_prices if p.vendor.city == 'Cairo'), None)
             is_estimated = True
         if not best_mp:
-            best_mp = MarketPrice.objects.filter(meal=mp.meal).first()
+            best_mp = meal_prices[0]
             is_estimated = True
             
         if best_mp:
@@ -408,20 +420,20 @@ def search_food(request):
             seen_meals.add(mp.meal_id)
 
     # 2. Search Egyptian Meals (bilingual)
+    # Optimization: prefetch_related for recipe items and ingredients
     egyptian_meals = EgyptianMeal.objects.filter(
         Q(name_en__icontains=query) | Q(name_ar__icontains=query)
-    )
+    ).prefetch_related('recipe_items', 'recipe_items__ingredient')
+    
     egyptian_results = []
     from .serializers import EgyptianMealUnifiedSerializer
     for em in egyptian_meals:
-        # Use the unified format for search results
+        # Serializer handles calculations which use the prefetched data
         data = EgyptianMealUnifiedSerializer(em).data
         data['type'] = 'egyptian'
-        # name_ar is already included by serializer
         egyptian_results.append(data)
 
     # 3. Search Custom Meals (Bilingual)
-    from django.db.models import Q
     custom_meals = UserCustomMeal.objects.filter(
         Q(user=request.user) & (Q(name__icontains=query) | Q(name_ar__icontains=query))
     )
@@ -430,7 +442,7 @@ def search_food(request):
         custom_results.append({
             'id': cm.id,
             'name': cm.name,
-            'name_ar': cm.name_ar,  # Include Arabic name for localization
+            'name_ar': cm.name_ar,
             'calories': cm.calories,
             'protein': cm.protein_g,
             'carbs': cm.carbs_g,
