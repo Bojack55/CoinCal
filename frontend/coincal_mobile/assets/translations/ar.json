@@ -198,10 +198,19 @@
         "update_activity": "تحديث مستوى النشاط",
         "english": "English",
         "arabic": "العربية",
-        "activity_sedentary": "خامل",
-        "activity_lightly_active": "نشاط خفيف",
-        "activity_moderately_active": "نشاط متوسط",
-        "activity_very_active": "نشاط عالي",
-        "activity_extremely_active": "نشاط عالي جداً"
+        "settings": "الإعدادات",
+        "language": "اللغة"
+    },
+    "activity_sedentary": "خامل",
+    "activity_lightly_active": "نشاط خفيف",
+    "activity_moderately_active": "نشاط متوسط",
+    "activity_very_active": "نشاط عالي",
+    "activity_extremely_active": "نشاط عالي جداً",
+    "units": {
+        "kcal": "سعرة",
+        "egp": "ج.م",
+        "g": "جم",
+        "kg": "كجم",
+        "cm": "سم"
     }
 }

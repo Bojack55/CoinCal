@@ -176,7 +176,21 @@
         "update_budget": "Update Daily Budget",
         "update_activity": "Update Activity",
         "english": "English",
-        "arabic": "Arabic"
+        "arabic": "Arabic",
+        "settings": "Settings",
+        "language": "Language"
+    },
+    "activity_sedentary": "Sedentary",
+    "activity_lightly_active": "Lightly Active",
+    "activity_moderately_active": "Moderately Active",
+    "activity_very_active": "Very Active",
+    "activity_extremely_active": "Extremely Active",
+    "units": {
+        "kcal": "kcal",
+        "egp": "EGP",
+        "g": "g",
+        "kg": "kg",
+        "cm": "cm"
     },
     "kitchen": {
         "title": "Kitchen",
