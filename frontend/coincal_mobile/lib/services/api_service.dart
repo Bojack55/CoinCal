@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,6 +23,11 @@ class ApiService {
     'Content-Type': 'application/json',
     if (token != null) 'Authorization': 'Token $token',
   };
+
+  // Event stream for UI updates
+  static final _refreshController = StreamController<void>.broadcast();
+  static Stream<void> get refreshStream => _refreshController.stream;
+  static void notifyRefresh() => _refreshController.add(null);
 
   static Future<List<Meal>> fetchFoodItems({bool forceRefresh = false}) async {
     if (!forceRefresh && _cache.containsKey('foods')) {
@@ -168,6 +174,10 @@ class ApiService {
           '${errorData['error']} \n\n${errorData['traceback'] ?? ''}',
         );
       }
+      // Invalidate dashboard cache since stats have changed
+      _cache.removeWhere((key, value) => key.startsWith('dashboard_'));
+      notifyRefresh();
+      return json.decode(response.body);
     } catch (e) {
       throw Exception('Log failed: $e');
     }
@@ -296,7 +306,10 @@ class ApiService {
         headers: _headers,
         body: json.encode({'weight': weight}),
       );
-      if (response.statusCode != 201) {
+      if (response.statusCode == 201) {
+        _cache.removeWhere((key, value) => key.startsWith('dashboard_'));
+        notifyRefresh();
+      } else {
         throw Exception('Weight log failed');
       }
     } catch (e) {
@@ -391,6 +404,9 @@ class ApiService {
       if (response.statusCode != 201) {
         throw Exception('Failed to log recipe');
       }
+      // Invalidate dashboard cache
+      _cache.removeWhere((key, value) => key.startsWith('dashboard_'));
+      notifyRefresh();
     } catch (e) {
       throw Exception('Recipe logging error: $e');
     }
@@ -487,6 +503,8 @@ class ApiService {
         body: json.encode({'date': dateStr}),
       );
       if (response.statusCode == 200) {
+        _cache.removeWhere((key, value) => key.startsWith('dashboard_'));
+        notifyRefresh();
         return json.decode(response.body);
       } else {
         throw Exception('Failed to toggle status');
