@@ -65,7 +65,7 @@ class MarketPrice(TimeStampedModel):
     meal = models.ForeignKey(BaseMeal, on_delete=models.CASCADE, related_name='prices')
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='prices')
     price_egp = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.0'))
-    is_price_verified = models.BooleanField(default=False)
+    is_price_verified = models.BooleanField(default=False, db_index=True)
 
     class Meta:
         unique_together = ('meal', 'vendor')
@@ -149,7 +149,7 @@ class UserProfile(TimeStampedModel):
 class WeightLog(TimeStampedModel):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='weight_logs')
     weight = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0.0'))
-    date = models.DateField(default=timezone.now)
+    date = models.DateField(default=timezone.now, db_index=True)
 
     class Meta:
         ordering = ['date']
@@ -179,7 +179,7 @@ class MealLog(TimeStampedModel):
     meal = models.ForeignKey(BaseMeal, on_delete=models.SET_NULL, null=True, blank=True, related_name='standard_meal_logs')
     custom_meal = models.ForeignKey(UserCustomMeal, on_delete=models.SET_NULL, null=True, blank=True, related_name='custom_meal_logs')
     egyptian_meal = models.ForeignKey('EgyptianMeal', on_delete=models.SET_NULL, null=True, blank=True, related_name='egyptian_meal_logs')
-    date = models.DateField(default=date.today)
+    date = models.DateField(default=date.today, db_index=True)
     quantity = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('1.0'))
     prep_style = models.CharField(max_length=10, choices=PREP_CHOICES, default='STANDARD')
     
@@ -252,7 +252,7 @@ class MealLog(TimeStampedModel):
 
 class DailySummary(TimeStampedModel):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='summaries')
-    date = models.DateField(default=date.today)
+    date = models.DateField(default=date.today, db_index=True)
     total_calories_consumed = models.IntegerField(default=0)
     total_budget_spent = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.0'))
     water_intake_cups = models.IntegerField(default=0)
@@ -472,7 +472,7 @@ class DayStatus(TimeStampedModel):
         ('cheat', 'Cheat Day'),
     ]
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='day_statuses')
-    date = models.DateField(default=date.today)
+    date = models.DateField(default=date.today, db_index=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='standard')
 
     class Meta:

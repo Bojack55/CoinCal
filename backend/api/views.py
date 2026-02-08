@@ -269,7 +269,7 @@ def get_food_list(request):
     fallback_prices = MarketPrice.objects.filter(
         meal__in=other_meals,
         vendor__name="Market Average - Cairo"
-    )
+    ).select_related('meal', 'vendor') # Optimize Fallback N+1
     
     # Serialize both
     market_data = MarketPriceSerializer(local_prices, many=True).data
@@ -284,7 +284,7 @@ def get_food_list(request):
     custom_data = UserCustomMealSerializer(custom_meals, many=True).data
     
     # Egyptian Meals (Ground Truth)
-    egyptian_meals = EgyptianMeal.objects.all()
+    egyptian_meals = EgyptianMeal.objects.all().prefetch_related('recipe_items__ingredient')
     egyptian_data = EgyptianMealUnifiedSerializer(egyptian_meals, many=True).data
 
     # === DEDUPLICATION: Prioritize Smart Engine (EgyptianMeal) ===
@@ -455,7 +455,7 @@ def search_food(request):
             'category': 'Custom'
         })
 
-    all_results = global_results + egyptian_results + custom_results
+    all_results = (global_results + egyptian_results + custom_results)[:50] # Limit search results
     serializer = UnifiedSearchSerializer(all_results, many=True)
     return Response(serializer.data)
 
@@ -1000,9 +1000,9 @@ def search_ingredients(request):
         # Search both English and Arabic names
         ingredients = Ingredient.objects.filter(
             Q(name__icontains=query) | Q(name_ar__icontains=query)
-        )
+        )[:50]
     else:
-        ingredients = Ingredient.objects.all()[:15]
+        ingredients = Ingredient.objects.all()[:50]
     
     serializer = IngredientSerializer(ingredients, many=True)
     return Response(serializer.data)
@@ -1045,7 +1045,7 @@ def manage_recipes(request, pk=None):
             serializer = RecipeSerializer(recipe)
             return Response(serializer.data)
         else:
-            recipes = Recipe.objects.filter(user=profile)
+            recipes = Recipe.objects.filter(user=profile).prefetch_related('items__ingredient')
             serializer = RecipeSerializer(recipes, many=True)
             return Response(serializer.data)
             
@@ -1214,7 +1214,7 @@ def generate_plan(request):
         add_to_pool(data, item.meal.meal_type)
 
     # B. Egyptian items
-    egyptian_items = EgyptianMeal.objects.all()
+    egyptian_items = EgyptianMeal.objects.all().prefetch_related('recipe_items__ingredient')
     for item in egyptian_items:
         calc = item.calculate_nutrition()
         price = float(calc['price'])
@@ -1303,7 +1303,7 @@ def generate_plan(request):
     include_custom = request.data.get('include_custom', False)
     if include_custom:
         # Fetch user recipes (Recipe Studio)
-        user_recipes = Recipe.objects.filter(user=request.user.profile)
+        user_recipes = Recipe.objects.filter(user=request.user.profile).prefetch_related('items__ingredient')
         for recipe in user_recipes:
              # Calculate stats on the fly
              total_cals = 0
@@ -2141,6 +2141,8 @@ def get_meal_history(request):
     """
     Returns the user's logged meals in reverse chronological order.
     """
-    logs = MealLog.objects.filter(user=request.user.profile).order_by('-date', '-created_at')[:50]
+    logs = MealLog.objects.filter(user=request.user.profile).select_related(
+        'meal', 'custom_meal', 'egyptian_meal'
+    ).order_by('-date', '-created_at')[:50]
     serializer = MealLogDetailedSerializer(logs, many=True)
     return Response(serializer.data)

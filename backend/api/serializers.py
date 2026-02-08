@@ -137,12 +137,14 @@ class RecipeSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'servings', 'created_at', 'items', 'metrics']
 
     def get_metrics(self, obj):
+        # Optimization: Use prefetch_related for ingredients used in loop
         total_cost = 0.0
         total_cals = 0.0
         
+        # Accessing obj.items.all() which should be prefetched in the view
         for item in obj.items.all():
-            total_cost += item.amount * item.ingredient.price_per_unit
-            total_cals += item.amount * item.ingredient.calories_per_unit
+            total_cost += float(item.amount) * float(item.ingredient.price_per_unit)
+            total_cals += float(item.amount) * float(item.ingredient.calories_per_unit)
             
         return {
             "total_cost": round(total_cost, 2),
@@ -286,7 +288,10 @@ class EgyptianMealUnifiedSerializer(serializers.ModelSerializer):
         return 'Lunch' 
 
     def _get_nut(self, obj):
-        return obj.calculate_nutrition()
+        # Cache nutrition result in the object instance to avoid redundant lookups
+        if not hasattr(obj, '_nutrition_memo'):
+            obj._nutrition_memo = obj.calculate_nutrition()
+        return obj._nutrition_memo
 
     def get_calories(self, obj):
         return int(self._get_nut(obj)['calories'])
@@ -301,7 +306,7 @@ class EgyptianMealUnifiedSerializer(serializers.ModelSerializer):
         return self._get_nut(obj)['fat']
 
     def get_price(self, obj):
-        return obj.get_price()
+        return self._get_nut(obj)['price']
 
     def get_min_calories(self, obj):
         return self.get_calories(obj)
