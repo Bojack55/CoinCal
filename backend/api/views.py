@@ -1411,40 +1411,48 @@ def generate_plan(request):
         total_cals = 0
         total_prot = 0
         
-        valid_iter = True
+        # 3.1 Sequential Filling (Largest % First)
+        sorted_slots = sorted(slots, key=lambda x: x['pct'], reverse=True)
+        calorie_debt = 0
         
-        for slot in slots:
+        for slot in sorted_slots:
             s_name = slot['name'] 
-            s_target = int(target_calories * slot['pct'])
+            # Apply debt from previous slots to this one
+            s_target = int(target_calories * slot['pct']) + calorie_debt
             s_pool = slot['pool']
-            max_sides = slot['sides']
             
             if not s_pool: 
-                # If pool empty, try fallback to all_candidates
                 s_pool = all_candidates
             
-            # Pick Main
-            main = random.choice(s_pool)
-            items = [main]
+            # Pick Items from Primary Pool (Multi-Main Support)
+            items = []
+            slot_price = 0
+            slot_cals = 0
             
-            slot_price = main['price']
-            slot_cals = main['calories']
+            # Try to pick at least one main, then more if target not met
+            for _ in range(3): # Max 3 "mains" per slot
+                if not s_pool: break
+                candidate = random.choice(s_pool)
+                if any(item['name'] == candidate['name'] for item in items):
+                    continue # Skip duplicates in same meal
+                
+                if total_price + candidate['price'] <= daily_budget:
+                    items.append(candidate)
+                    slot_price += candidate['price']
+                    slot_cals += candidate['calories']
+                    total_price += candidate['price']
+                    total_cals += candidate['calories']
+                    total_prot += candidate['protein']
+                
+                if slot_cals >= s_target:
+                    break
             
-            total_price += main['price']
-            total_cals += main['calories']
-            total_prot += main['protein']
-            
-            # Add Sides Aggressively
+            # Add Sides Aggressively (Refined)
             if pool_sides:
-                 # Try to add until slot target is met, up to 6 items per slot
-                 for i in range(6): 
+                 for _ in range(10): # Even higher per-slot limit
                       if slot_cals < s_target and total_price < daily_budget: 
                           side = random.choice(pool_sides)
-                          
-                          # Heuristic: avoid duplicate types in same meal
-                          if any(item['name'] == side['name'] for item in items):
-                              continue
-                              
+                          if any(item['name'] == side['name'] for item in items): continue
                           if total_price + side['price'] <= daily_budget:
                               items.append(side)
                               slot_price += side['price']
@@ -1457,6 +1465,9 @@ def generate_plan(request):
             
             meal_groups[s_name] = items
             
+            # Calculate debt for next slot
+            calorie_debt = max(0, s_target - slot_cals)
+            
             if total_price > daily_budget:
                 valid_iter = False
                 break
@@ -1464,16 +1475,20 @@ def generate_plan(request):
         if not valid_iter:
             continue
             
-        # Final "Filler" Pass: If still under target and have budget, add more sides to random slots
-        if total_cals < target_calories * 0.98 and total_price < daily_budget * 0.95 and pool_sides:
-            for _ in range(5): # Extra filler attempts
+        # Final "Global Exhaustion" Pass: Use the whole budget to hit target
+        if total_cals < target_calories * 0.99 and total_price < daily_budget * 0.99:
+            # Try to add any item (mains or sides) to any slot until budget/calories hit
+            global_pool = all_candidates + pool_sides
+            for _ in range(15): 
                 target_slot = random.choice(list(meal_groups.keys()))
-                side = random.choice(pool_sides)
-                if total_price + side['price'] <= daily_budget:
-                    meal_groups[target_slot].append(side)
-                    total_price += side['price']
-                    total_cals += side['calories']
-                    total_prot += side['protein']
+                item = random.choice(global_pool)
+                if any(m['name'] == item['name'] for m in meal_groups[target_slot]): continue
+                
+                if total_price + item['price'] <= daily_budget:
+                    meal_groups[target_slot].append(item)
+                    total_price += item['price']
+                    total_cals += item['calories']
+                    total_prot += item['protein']
                 if total_cals >= target_calories:
                     break
             
@@ -1484,8 +1499,13 @@ def generate_plan(request):
         # Stricter Calorie Matching (Minimize absolute error from target)
         cal_penalty = abs(target_calories - total_cals) / target_calories
         
-        # Priority: Calorie Accuracy > Budget Utilization > Protein
-        score = (cal_penalty * 5.0) + (budget_comp * 1.5) - (protein_bonus * 0.5)
+        # Priority: Calorie Accuracy > Budget Exhaustion > Protein
+        # Only reward budget usage if calories are still NOT met
+        budget_reward = 0
+        if total_cals < target_calories:
+            budget_reward = (total_price / daily_budget) * -1.0 # Negative score is better
+        
+        score = (cal_penalty * 8.0) + (budget_reward * 2.0) - (protein_bonus * 0.5)
         
         if score < best_score:
             best_score = score
