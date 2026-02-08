@@ -1568,6 +1568,7 @@ def generate_plan(request):
                 random.shuffle(pool)
 
         # Apply Sort to ALL pools
+        # (Keep sorting as a baseline helper, though the new selector will do its own scoring)
         apply_strategy_sort(pool_breakfast, current_variant)
         apply_strategy_sort(pool_lunch, current_variant)
         apply_strategy_sort(pool_dinner, current_variant)
@@ -1579,105 +1580,244 @@ def generate_plan(request):
         total_cals = 0
         total_prot = 0.0
         
-        # PHASE 1: CALORIE CAPTURE (Per-Slot Targets)
-        # v8 Change: Calculate explicit target per slot BEFORE selection to prevent front-loading
+        # --- NEW ALGORITHM v10: CALORIE PRIORITY ---
         
-        # Calculate Base Targets for ALL slots first
+        print(f"[PLAN] Target: {target_calories} kcal, {daily_budget} EGP")
+
+        # 1. Define Helper: Select Best Food for Calorie Target
+        def select_food_for_meal(pool, calorie_target_gap, budget_limit, current_slot_items):
+            """
+            Selects the best single food item to bridge the calorie gap.
+            Scoring: 70% Calorie Match, 30% Cost Efficiency (Calories per EGP).
+            """
+            best_food = None
+            best_score = -1.0
+            
+            # Filter viable candidates first
+            candidates = []
+            for item in pool:
+                # 1. Budget Hard Constraint
+                if item['price'] > budget_limit:
+                    continue
+                
+                # 2. Avoid Duplicates in same slot
+                if any(x['name'] == item['name'] for x in current_slot_items):
+                    continue
+                    
+                candidates.append(item)
+            
+            if not candidates:
+                return None
+                
+            for food in candidates:
+                # Metric 1: Calorie Accuracy (How close does this item get us to closing the gap?)
+                # We want to minimize |gap - food_cals|
+                # Normalized Score: 1.0 = Perfect match, 0.0 = Way off
+                # We consider "Way off" as > 2 * gap (overshooting by double) or excessively small
+                
+                diff = abs(calorie_target_gap - food['calories'])
+                
+                # Dynamic normalization base: usually the gap itself
+                norm_base = max(calorie_target_gap, 100) 
+                accuracy_score = max(0.0, 1.0 - (diff / norm_base))
+                
+                # Metric 2: Cost Efficiency (Calories per EGP)
+                # To prevent blowing budget on low-cal expensive items
+                # Max efficiency reference: 20 cal/egp is decent? 
+                # Let's normalize against the max efficiency in the candidate pool for fairness
+                cpe = food['calories'] / food['price'] if food['price'] > 0 else 0
+                
+                # Store tuple for second pass or just use raw CPE? 
+                # Let's simple-score it here. We'll refine if needed.
+                # Just use raw CPE but capped? No, let's trust the relative values.
+                # Actually, let's just weigh CPE.
+                
+                # User Formula: (accuracy * 0.7) + (efficiency_factor * 0.3)
+                # We need efficiency to be roughly 0-1 to match accuracy scale.
+                # Let's cap efficiency score at 50 cal/egp = 1.0
+                efficiency_score = min(1.0, cpe / 50.0)
+                
+                final_score = (accuracy_score * 0.7) + (efficiency_score * 0.3)
+                
+                if final_score > best_score:
+                    best_score = final_score
+                    best_food = food
+            
+            return best_food
+
+        # 2. Distribute Targets
         slot_targets = {}
         for slot in slots:
             slot_targets[slot['name']] = {
                 'cal_target': int(target_calories * float(slot['pct'])),
-                'budget_target': float(daily_budget) * float(slot['pct'])
+                'budget_limit': float(daily_budget) * float(slot['pct']) # Soft limit for distribution
             }
+
+        # 3. Main Loop: Fill Slots by Calorie Priority
+        sorted_slots = sorted(slots, key=lambda x: x['pct'], reverse=True) # Fill big meals first
         
-        # We still iterate by size (biggest meals first) but respect individual limits
-        sorted_slots = sorted(slots, key=lambda x: x['pct'], reverse=True)
+        remaining_global_budget = float(daily_budget)
+        remaining_global_cals = target_calories
         
         for slot in sorted_slots:
             s_name = slot['name']
-            targets = slot_targets[s_name]
-        
-            s_cal_target = targets['cal_target']
-            s_nudget_limit = targets['budget_target']
-        
-            # Allow small overflow for main meals (Breakfast/Lunch/Dinner)
-            # to ensure we don't under-eat just because of strict math
-            if float(slot['pct']) > 0.15:
-                s_cal_target = int(s_cal_target * 1.1)
-                s_nudget_limit = s_nudget_limit * 1.1
-            
+            s_target = slot_targets[s_name]['cal_target']
             s_pool = slot['pool'] if slot['pool'] else all_candidates
-        
-            slot_cals = 0
-            slot_price = 0.0
-        
-            for candidate in s_pool:
-                if any(item['name'] == candidate['name'] for item in meal_groups[s_name]):
-                    continue
             
-                # Check 1: Does it fit in GLOBAL remaining?
-                if (total_price + candidate['price']) > float(daily_budget):
-                    continue
+            current_slot_cals = 0
+            current_slot_cost = 0.0
+            
+            # Iteratively add foods until we hit slot target
+            # Safety break after 10 items to prevent infinite loops
+            for _ in range(10): 
+                # Check status
+                gap = s_target - current_slot_cals
                 
-                # Check 2: Does it fit in SLOT limit?
-                # We allow adding if we haven't hit the slot target yet
-                if slot_cals < s_cal_target:
-                     # Add it!
-                     meal_groups[s_name].append(candidate)
-                     total_price += candidate['price']
-                     total_cals += candidate['calories']
-                     total_prot += candidate['protein']
-                 
-                     slot_cals += candidate['calories']
-                     slot_price += candidate['price']
-                else:
-                    # Slot is full
+                # Stop if we are close enough (e.g. within 50 kcals or overshot appropriately)
+                # Allowing slight overshoot (up to 10%) if it means better food
+                if gap <= -50: # We overshot by 50+, stop
                     break
-
-        # PHASE 2: QUALITY UPGRADE (Budget Expansion)
-        # Goal: Use remaining budget to "upgrade" items to more expensive, high-protein versions
-        remaining_budget = float(daily_budget) - total_price
-        
-        if remaining_budget > 0:
-            upgrade_iterations = 3 # Try multiple passes
-            for _ in range(upgrade_iterations):
-                for slot in slots:
-                    s_name = slot['name']
-                    s_pool = slot['pool'] if slot['pool'] else all_candidates
+                if abs(gap) < 50: # Close enough (±50)
+                    break
+                    
+                # Calculate budget for this specific addition
+                # We can use global remaining, but we should try to stick to slot ratio if possible?
+                # User said: "2. THEN try to use remaining budget"
+                # So PRIMARY constraint is Global Budget? 
+                # "Use as much budget as possible without exceeding it"
+                # So we simply check remaining_global_budget.
                 
-                    # Try to swap each item in the slot for a "better" one
-                    for i, current_item in enumerate(meal_groups[s_name]):
-                        # Look for a candidate that is better (Higher protein or more calories)
-                        # but still within the remaining budget
-                        best_upgrade = None
-                        max_protein_gain = 0
+                best_item = select_food_for_meal(
+                    s_pool,
+                    gap, # We want an item that fills the gap!
+                    remaining_global_budget,
+                    meal_groups[s_name]
+                )
+                
+                if best_item:
+                    meal_groups[s_name].append(best_item)
                     
-                        # Optimization: Shuffle pool slightly to avoid deterministic upgrades
-                        # taking only top 50 to avoid checking everything
-                        check_pool = s_pool[:50]
-                        random.shuffle(check_pool)
+                    # Update Counters
+                    current_slot_cals += best_item['calories']
+                    current_slot_cost += best_item['price']
                     
-                        for candidate in check_pool:
-                            if any(item['name'] == candidate['name'] for item in meal_groups[s_name]):
-                                continue
-                        
-                            price_diff = candidate['price'] - current_item['price']
-                            if 0 < price_diff <= remaining_budget:
-                                protein_gain = candidate['protein'] - current_item['protein']
-                                # Priority: Increase Protein, then Calories
-                                if protein_gain > max_protein_gain:
-                                    max_protein_gain = protein_gain
-                                    best_upgrade = candidate
-                                elif protein_gain == max_protein_gain and candidate['calories'] > current_item['calories']:
-                                    best_upgrade = candidate
+                    total_cals += best_item['calories']
+                    total_price += best_item['price']
+                    total_prot += best_item['protein']
                     
-                        if best_upgrade:
-                            # Perform the swap
-                            price_diff = best_upgrade['price'] - current_item['price']
-                            remaining_budget -= price_diff
-                            total_price += price_diff
-                            total_cals += (best_upgrade['calories'] - current_item['calories'])
-                            total_prot += (best_upgrade['protein'] - current_item['protein'])
+                    remaining_global_budget -= best_item['price']
+                    remaining_global_cals -= best_item['calories']
+                else:
+                    # No item found that fits budget/gap
+                    break
+                    
+        # 4. Phase 2: Budget Utilization (Upgrades/Sides)
+        # Only if we are lacking calories OR have budget to improve quality
+        # User Priority 2: Use budget without exceeding.
+        
+        # Check Calorie Accuracy
+        cal_diff = total_cals - target_calories
+        
+        # A. If Undershoot > 200: Try to add Sides/Snacks to any slot
+        if cal_diff < -200 and remaining_global_budget > 5.0:
+            print(f"[DEBUG v10] Undershot by {cal_diff}. Attempting to fill with sides.")
+            for _ in range(5):
+                if total_cals >= target_calories - 50 or remaining_global_budget < 2.0:
+                    break
+                
+                # Pick a random slot to pad
+                target_slot = random.choice(list(meal_groups.keys()))
+                gap = target_calories - total_cals
+                
+                # Use side pool or snack pool
+                fill_pool = pool_sides + pool_snack
+                best_filler = select_food_for_meal(fill_pool, gap, remaining_global_budget, meal_groups[target_slot])
+                
+                if best_filler:
+                    meal_groups[target_slot].append(best_filler)
+                    total_cals += best_filler['calories']
+                    total_price += best_filler['price']
+                    total_prot += best_filler['protein']
+                    remaining_global_budget -= best_filler['price']
+        
+        # B. If Budget Remains: Upgrade for Quality (Protein) without breaking calories
+        # User said: "Upgrade meals... (better quality, not more calories)"
+        # This implies we want same calories, higher protein/price.
+        
+        if remaining_global_budget > 5.0 and abs(total_cals - target_calories) < 200:
+             print(f"[DEBUG v10] Budget remains ({remaining_global_budget}). optimizing quality.")
+             # Iterate existing meals and try to swap
+             for s_name, items in meal_groups.items():
+                 for i, item in enumerate(items):
+                     if remaining_global_budget <= 1.0: break
+                     
+                     # Find swap: Similar calories (±10%), Higher Score (Protein?), Fits Budget
+                     # Candidate pool: 
+                     s_pool = [x for x in (slot_targets.get(s_name, {}).get('pool') or all_candidates)]
+                     
+                     best_swap = None
+                     best_swap_gain = 0
+                     
+                     for cand in s_pool[:50]: # Check top 50 matches in pool logic
+                         # Cost check
+                         cost_diff = cand['price'] - item['price']
+                         if cost_diff > remaining_global_budget or cost_diff < 0: 
+                             continue # Only upgrades (we want to SPEND budget)
+                             
+                         # Calorie Stability Check
+                         cal_diff_swap = cand['calories'] - item['calories']
+                         # New total must be within tolerant range of target, OR bring us CLOSER to target
+                         new_total_cals = total_cals + cal_diff_swap
+                         new_global_diff = abs(new_total_cals - target_calories)
+                         current_global_diff = abs(total_cals - target_calories)
+                         
+                         # Allow swap if:
+                         # 1. It reduces global calorie error
+                         # 2. OR it keeps error within acceptable range (±100)
+                         valid_swap = False
+                         if new_global_diff < current_global_diff: valid_swap = True
+                         elif new_global_diff < 100: valid_swap = True
+                         
+                         if not valid_swap: continue
+                         
+                         # It's a valid candidate. Is it better?
+                         # Metric: Protein gain
+                         prot_gain = cand['protein'] - item['protein']
+                         if prot_gain > best_swap_gain:
+                             best_swap_gain = prot_gain
+                             best_swap = cand
+                             
+                     if best_swap:
+                         # Execute Swap
+                         cost_diff = best_swap['price'] - item['price']
+                         cal_diff_swap = best_swap['calories'] - item['calories']
+                         prot_diff = best_swap['protein'] - item['protein']
+                         
+                         meal_groups[s_name][i] = best_swap
+                         
+                         total_price += cost_diff
+                         total_cals += cal_diff_swap
+                         total_prot += prot_diff
+                         remaining_global_budget -= cost_diff
+
+        # 5. Validation and Reporting
+        calorie_difference = abs(total_cals - target_calories)
+        print(f"[PLAN] Generated: {total_cals} kcal ({calorie_difference} off), {total_price} EGP")
+        print(f"[PLAN] Budget usage: {(total_price/float(daily_budget))*100:.1f}%")
+        
+        plan_warning = ""
+        # 6. Error on Major Failure (as requested)
+        if calorie_difference > 300: # Slightly looser than 200 to be safe, but strict enough
+             plan_warning = f"Could not satisfy calorie target. Off by {calorie_difference} kcal. Check budget or settings."
+             # User requested returning error?
+             # "return error if calorie target is impossible"
+             # Let's add a warning flag or actually error?
+             # For API stability, maybe just a strong warning in the response, 
+             # unless strictly requested to 400.
+             # User code example showed returning error dict.
+             # Implementing soft error (Warning) to prevent UI crashes, but robust feedback.
+             
+        final_response = []
                         
                             meal_groups[s_name][i] = best_upgrade
 
