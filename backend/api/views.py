@@ -1162,41 +1162,85 @@ def generate_plan(request):
         {"budget": 100, "calories": 2000}
     """
     profile = request.user.profile
-    
-    # 1. Parse Inputs
-    try:
-        daily_budget = float(request.data.get('daily_budget', 50))
-        target_calories = int(request.data.get('target_calories', 2000))
-    except (ValueError, TypeError):
-        return Response({"error": "Invalid budget or calories inputs"}, status=status.HTTP_400_BAD_REQUEST)
-    
-    try:
-        # Get user's weight goals for smart calorie adjustment
-        try:
-            current_weight = float(profile.current_weight) if profile.current_weight else 70.0
-            target_weight = float(profile.goal_weight) if profile.goal_weight else current_weight
-        except (ValueError, TypeError, AttributeError):
-            current_weight = 70.0
-            target_weight = current_weight
 
-        # ... (Rest of parsing and pool gathering logic - assumed safe or handled) ...
-        # I need to be careful with indentation updates.
-        # Since I cannot indent 400 lines easily without reading them all, 
-        # I will wrap the critical ALGORITHM part (Strategy + Phases) which is where likely crashes are.
+    # --- v9: Dynamic User Data Fetching ---
+    # 1. Fetch User Parameters (Prioritize DB Profile)
+    # If not in DB, check request params, else calculate defaults.
+    
+    # Weight & Goals
+    try:
+        current_weight = float(profile.current_weight) if profile.current_weight else 70.0
+        target_weight = float(profile.goal_weight) if profile.goal_weight else current_weight
+        height = float(profile.height) if profile.height else 170.0
+        age = profile.age if profile.age else 25
+        gender = profile.gender if profile.gender else 'M'
+        activity = profile.activity_level if profile.activity_level else 'Moderate'
+    except:
+        current_weight = 70.0
+        target_weight = 70.0
+        height = 170.0
+        age = 25
+        gender = 'M'
+        activity = 'Moderate'
 
-        # ...
+    # Target Calories
+    # Check if user has a custom target set in profile (assuming new field or using helper)
+    # If not, use the request param, or CALCULATE it.
+    profile_calories = getattr(profile, 'calorie_goal', None) # Check if model has this
+    req_calories = request.data.get('target_calories')
+    
+    if profile_calories:
+        target_calories = int(profile_calories)
+    elif req_calories:
+        target_calories = int(req_calories)
+    else:
+        # Calculate BMR (Mifflin-St Jeor)
+        # Men: (10 × weight) + (6.25 × height) - (5 × age) + 5
+        # Women: (10 × weight) + (6.25 × height) - (5 × age) - 161
+        base_bmr = (10 * current_weight) + (6.25 * height) - (5 * age)
+        if gender == 'M': bmr = base_bmr + 5
+        else: bmr = base_bmr - 161
         
-        # [Existing Code up to iterations = 1] -> around line 1407 
-        # I will replace from "iterations = 1" down to end.
+        # Activity Multipliers
+        multipliers = {
+            'Sedentary': 1.2, 'Light': 1.375, 'Moderate': 1.55, 'Active': 1.725, 'Very Active': 1.9
+        }
+        activity_factor = multipliers.get(activity, 1.55)
+        tdee = int(bmr * activity_factor)
+        
+        # Goal Adjustment
+        if target_weight < current_weight: target_calories = tdee - 500 # Deficit
+        elif target_weight > current_weight: target_calories = tdee + 500 # Surplus
+        else: target_calories = tdee # Maintain
+        
+        # Safety clamp (but flexible)
+        target_calories = max(1200, min(5000, target_calories))
+
+    # Daily Budget
+    # Prioritize profile budget
+    profile_budget = getattr(profile, 'daily_budget_limit', None)
+    req_budget = request.data.get('daily_budget')
     
-    except Exception as e:
-        import traceback
-        print(f"Diet Plan Generation Error: {str(e)}")
-        traceback.print_exc()
-        return Response({
-            "error": "Failed to generate diet plan. Please try again or adjust your settings.",
-            "details": str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    if profile_budget and float(profile_budget) > 0:
+        daily_budget = float(profile_budget)
+    elif req_budget:
+        daily_budget = float(req_budget)
+    else:
+        daily_budget = 50.0 # Default fallback
+    
+    # Meals Count (Default 3, but respect input)
+    # Theoretically should be in profile too. 
+    try:
+        meals_count = int(request.data.get('meals_count', 3))
+    except (ValueError, TypeError):
+        meals_count = 3
+        
+    # Validation (No hard stops, just clamps)
+    meals_count = max(1, min(10, meals_count)) # Support 1-10 meals
+    target_calories = max(500, target_calories) # Min 500 kcal
+    daily_budget = max(1.0, daily_budget) # Min 1 EGP
+
+    # --- End v9 Data Fetching ---
 
     # 2. Gather Pools (Breakfast, Lunch, Dinner)
     pool_breakfast = []
@@ -1384,46 +1428,73 @@ def generate_plan(request):
         meals_count = int(request.data.get('meals_count', 3))
     except:
         meals_count = 3
-    meals_count = max(2, min(6, meals_count))
+    meals_count = max(1, min(10, meals_count)) # Support 1-10 meals
     
-    # Define Slots Configuration
-    # Each config is a list of slots. Each slot: {name, pct, pool, sides}
+    # v9: Dynamic Slot Configuration for ANY N meals (1-10)
+    # Instead of hardcoded configs, we generate them algorithmically.
     
-    configs = {
-        2: [ # Lunch 50%, Dinner 50%
+    slots = []
+    
+    if meals_count == 1:
+        # OMAD (One Meal A Day)
+        slots = [{'name': 'dinner', 'pct': 1.0, 'pool': pool_dinner, 'sides': 4}]
+    elif meals_count == 2:
+        # Lunch/Dinner Split
+        slots = [
             {'name': 'lunch', 'pct': 0.50, 'pool': pool_lunch, 'sides': 3},
-            {'name': 'dinner', 'pct': 0.50, 'pool': pool_dinner, 'sides': 3},
-        ],
-        3: [ # Breakfast 25%, Lunch 40%, Dinner 35%
-            {'name': 'breakfast', 'pct': 0.25, 'pool': pool_breakfast, 'sides': 2},
-            {'name': 'lunch', 'pct': 0.40, 'pool': pool_lunch, 'sides': 3},
-            {'name': 'dinner', 'pct': 0.35, 'pool': pool_dinner, 'sides': 3},
-        ],
-        4: [ # B 25, L 35, S 10, D 30
-           {'name': 'breakfast', 'pct': 0.25, 'pool': pool_breakfast, 'sides': 1},
-           {'name': 'lunch', 'pct': 0.35, 'pool': pool_lunch, 'sides': 2},
-           {'name': 'snack_1', 'pct': 0.10, 'pool': pool_snack, 'sides': 0},
-           {'name': 'dinner', 'pct': 0.30, 'pool': pool_dinner, 'sides': 2},
-        ],
-        5: [ # B 20, S 10, L 30, S 10, D 30
-           {'name': 'breakfast', 'pct': 0.20, 'pool': pool_breakfast, 'sides': 1},
-           {'name': 'snack_1', 'pct': 0.10, 'pool': pool_snack, 'sides': 0},
-           {'name': 'lunch', 'pct': 0.30, 'pool': pool_lunch, 'sides': 2},
-           {'name': 'snack_2', 'pct': 0.10, 'pool': pool_snack, 'sides': 0},
-           {'name': 'dinner', 'pct': 0.30, 'pool': pool_dinner, 'sides': 2},
-        ],
-        6: [ # B 20, S 5, L 30, S 5, D 30, S 10
-           {'name': 'breakfast', 'pct': 0.20, 'pool': pool_breakfast, 'sides': 1},
-           {'name': 'snack_1', 'pct': 0.05, 'pool': pool_snack, 'sides': 0},
-           {'name': 'lunch', 'pct': 0.30, 'pool': pool_lunch, 'sides': 2},
-           {'name': 'snack_2', 'pct': 0.05, 'pool': pool_snack, 'sides': 0},
-           {'name': 'dinner', 'pct': 0.30, 'pool': pool_dinner, 'sides': 2},
-           {'name': 'snack_3', 'pct': 0.10, 'pool': pool_snack, 'sides': 0},
+            {'name': 'dinner', 'pct': 0.50, 'pool': pool_dinner, 'sides': 3}
         ]
-    }
-    
-    try:
-        slots = configs.get(meals_count, configs[3])
+    elif meals_count == 3:
+        # Standard
+        slots = [
+            {'name': 'breakfast', 'pct': 0.30, 'pool': pool_breakfast, 'sides': 2},
+            {'name': 'lunch', 'pct': 0.40, 'pool': pool_lunch, 'sides': 3},
+            {'name': 'dinner', 'pct': 0.30, 'pool': pool_dinner, 'sides': 3}
+        ]
+    else:
+        # Complex Split (4+ meals)
+        # Allocation:
+        # - Breakfast: 20-25%
+        # - Lunch: 30%
+        # - Dinner: 25-30%
+        # - Snacks: Remainder split evenly
+        
+        # Base main meals
+        slots.append({'name': 'breakfast', 'pct': 0.25, 'pool': pool_breakfast, 'sides': 1})
+        slots.append({'name': 'lunch', 'pct': 0.30, 'pool': pool_lunch, 'sides': 2})
+        slots.append({'name': 'dinner', 'pct': 0.25, 'pool': pool_dinner, 'sides': 2})
+        
+        remaining_pct = 0.20
+        snack_count = meals_count - 3
+        snack_pct = remaining_pct / snack_count
+        
+        # Interleave snacks: B -> S1 -> L -> S2 -> D -> S3...
+        # We need to construct the list in order
+        new_slots = []
+        new_slots.append(slots[0]) # Breakfast
+        
+        # Add morning snacks
+        snacks_added = 0
+        if snack_count > 0:
+             new_slots.append({'name': 'snack_1', 'pct': snack_pct, 'pool': pool_snack, 'sides': 0})
+             snacks_added += 1
+             
+        new_slots.append(slots[1]) # Lunch
+        
+        # Add afternoon snacks
+        if snack_count > 1:
+             new_slots.append({'name': 'snack_2', 'pct': snack_pct, 'pool': pool_snack, 'sides': 0})
+             snacks_added += 1
+             
+        new_slots.append(slots[2]) # Dinner
+        
+        # Add evening snacks
+        while snacks_added < snack_count:
+             lbl = f"snack_{snacks_added+1}"
+             new_slots.append({'name': lbl, 'pct': snack_pct, 'pool': pool_snack, 'sides': 0})
+             snacks_added += 1
+             
+        slots = new_slots
         
         iterations = 1 
         
@@ -1648,20 +1719,49 @@ def generate_plan(request):
         final_response = []
         
         # Sort keys based on our defined order
-        sort_order = ['breakfast', 'snack_1', 'lunch', 'snack_2', 'dinner', 'snack_3']
+        # Dynamic sort order: Breakfast -> Snacks -> Lunch -> Snacks -> Dinner -> Snacks
+        # Simpler approach: Breakfast, Snack 1, Lunch, Snack 2, Dinner, Snack 3...
         
-        sorted_s_names = sorted(best_plan.keys(), key=lambda k: sort_order.index(k) if k in sort_order else 99)
+        def get_sort_index(key):
+            if 'breakfast' in key: return 0
+            if 'lunch' in key: return 20
+            if 'dinner' in key: return 40
+            if 'snack' in key:
+                # Extract number if present
+                parts = key.split('_')
+                if len(parts) > 1 and parts[1].isdigit():
+                     num = int(parts[1])
+                     # Interleave: 
+                     # Snack 1 -> 10 (Morning)
+                     # Snack 2 -> 30 (Afternoon)
+                     # Snack 3 -> 50 (Evening)
+                     # Snack 4+ -> 50+
+                     if num == 1: return 10
+                     if num == 2: return 30
+                     return 40 + num
+                return 50 # Generic snack
+            return 99
+            
+        sorted_s_names = sorted(best_plan.keys(), key=get_sort_index)
         
         labels_map = {
             'breakfast': 'Breakfast', 'lunch': 'Lunch', 'dinner': 'Dinner', 
-            'snack': 'Snack', 'snack_1': 'Morning Snack', 'snack_2': 'Afternoon Snack', 'snack_3': 'Evening Snack'
+            'snack_1': 'Morning Snack', 'snack_2': 'Afternoon Snack', 'snack_3': 'Evening Snack'
         }
         
         for category in sorted_s_names:
             items = best_plan[category]
             for i, item in enumerate(items):
                 # Display Label Logic
-                base_label = labels_map.get(category, category.replace('_', ' ').capitalize())
+                # Dynamic Labeling for extra snacks
+                if category in labels_map:
+                    base_label = labels_map[category]
+                else:
+                    # Fallback for snack_4, etc.
+                    if 'snack' in category:
+                         base_label = category.replace('_', ' ').title()
+                    else:
+                         base_label = category.capitalize()
                 
                 label = base_label
                 # Relabel sides as Salads & Appetizers for Lunch/Dinner
