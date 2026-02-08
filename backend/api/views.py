@@ -1821,18 +1821,18 @@ def generate_plan(request):
 
         # PHASE 3: FINAL POLISH (Sides and Snacks)
         # If we still have budget, add sides/snacks until we hit ~100% budget usage
-        if remaining_budget > 0 and pool_sides:
+        if remaining_global_budget > 0 and pool_sides:
             for _ in range(5): # Limit additional sides
-                if remaining_budget <= 0: break
+                if remaining_global_budget <= 0: break
             
                 target_slot = random.choice(list(meal_groups.keys()))
                 side = random.choice(pool_sides)
             
                 if any(m['name'] == side['name'] for m in meal_groups[target_slot]): continue
             
-                if side['price'] <= remaining_budget:
+                if side['price'] <= remaining_global_budget:
                     meal_groups[target_slot].append(side)
-                    remaining_budget -= side['price']
+                    remaining_global_budget -= side['price']
                     total_price += side['price']
                     total_cals += side['calories']
                     total_prot += side['protein']
