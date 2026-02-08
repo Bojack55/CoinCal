@@ -1404,117 +1404,129 @@ def generate_plan(request):
     
     slots = configs.get(meals_count, configs[3])
     
-    iterations = 6000
-    for _ in range(iterations):
-        meal_groups = {}
-        total_price = 0
-        total_cals = 0
-        total_prot = 0
+    iterations = 1 # Not used in v6, keeping for structure if needed
+    
+    # --- Diet Planner v6: Greedy + Upgrade Algorithm ---
+    
+    # 0. Efficiency Sorting
+    # Helper to get efficiency (cals per EGP)
+    def efficiency(item):
+        return item['calories'] / max(0.1, item['price'])
+
+    # Pre-sort all pools by efficiency descending
+    pool_breakfast.sort(key=efficiency, reverse=True)
+    pool_lunch.sort(key=efficiency, reverse=True)
+    pool_dinner.sort(key=efficiency, reverse=True)
+    pool_snack.sort(key=efficiency, reverse=True)
+    pool_sides.sort(key=efficiency, reverse=True)
+    
+    meal_groups = {slot['name']: [] for slot in slots}
+    total_price = 0
+    total_cals = 0
+    total_prot = 0
+    
+    # PHASE 1: CALORIE CAPTURE (Greedy Filling)
+    # Goal: Meet calorie target as cheaply as possible using efficient foods
+    sorted_slots = sorted(slots, key=lambda x: x['pct'], reverse=True)
+    calorie_debt = 0
+    
+    for slot in sorted_slots:
+        s_name = slot['name']
+        s_target = int(target_calories * slot['pct']) + calorie_debt
+        s_pool = slot['pool'] if slot['pool'] else all_candidates
+        s_pool = sorted(s_pool, key=efficiency, reverse=True) # Ensure efficiency sort
         
-        # 3.1 Sequential Filling (Largest % First)
-        sorted_slots = sorted(slots, key=lambda x: x['pct'], reverse=True)
-        calorie_debt = 0
-        
-        for slot in sorted_slots:
-            s_name = slot['name'] 
-            # Apply debt from previous slots to this one
-            s_target = int(target_calories * slot['pct']) + calorie_debt
-            s_pool = slot['pool']
+        slot_cals = 0
+        for candidate in s_pool:
+            if any(item['name'] == candidate['name'] for item in meal_groups[s_name]):
+                continue
             
-            if not s_pool: 
-                s_pool = all_candidates
+            # Simple greedy: if we still need calories, add it if budget allows
+            if total_price + candidate['price'] <= daily_budget:
+                meal_groups[s_name].append(candidate)
+                total_price += candidate['price']
+                total_cals += candidate['calories']
+                total_prot += candidate['protein']
+                slot_cals += candidate['calories']
             
-            # Pick Items from Primary Pool (Multi-Main Support)
-            items = []
-            slot_price = 0
-            slot_cals = 0
-            
-            # Try to pick at least one main, then more if target not met
-            for _ in range(3): # Max 3 "mains" per slot
-                if not s_pool: break
-                candidate = random.choice(s_pool)
-                if any(item['name'] == candidate['name'] for item in items):
-                    continue # Skip duplicates in same meal
-                
-                if total_price + candidate['price'] <= daily_budget:
-                    items.append(candidate)
-                    slot_price += candidate['price']
-                    slot_cals += candidate['calories']
-                    total_price += candidate['price']
-                    total_cals += candidate['calories']
-                    total_prot += candidate['protein']
-                
-                if slot_cals >= s_target:
-                    break
-            
-            # Add Sides Aggressively (Refined)
-            if pool_sides:
-                 for _ in range(10): # Even higher per-slot limit
-                      if slot_cals < s_target and total_price < daily_budget: 
-                          side = random.choice(pool_sides)
-                          if any(item['name'] == side['name'] for item in items): continue
-                          if total_price + side['price'] <= daily_budget:
-                              items.append(side)
-                              slot_price += side['price']
-                              slot_cals += side['calories']
-                              total_price += side['price']
-                              total_cals += side['calories']
-                              total_prot += side['protein']
-                      else:
-                          break
-            
-            meal_groups[s_name] = items
-            
-            # Calculate debt for next slot
-            calorie_debt = max(0, s_target - slot_cals)
-            
-            if total_price > daily_budget:
-                valid_iter = False
+            if slot_cals >= s_target:
                 break
         
-        if not valid_iter:
-            continue
-            
-        # Final "Global Exhaustion" Pass: Use the whole budget to hit target
-        if total_cals < target_calories * 0.99 and total_price < daily_budget * 0.99:
-            # Try to add any item (mains or sides) to any slot until budget/calories hit
-            global_pool = all_candidates + pool_sides
-            for _ in range(15): 
-                target_slot = random.choice(list(meal_groups.keys()))
-                item = random.choice(global_pool)
-                if any(m['name'] == item['name'] for m in meal_groups[target_slot]): continue
+        # Calculate debt/excess for next slot
+        calorie_debt = s_target - slot_cals
+
+    # PHASE 2: QUALITY UPGRADE (Budget Expansion)
+    # Goal: Use remaining budget to "upgrade" items to more expensive, high-protein versions
+    remaining_budget = daily_budget - total_price
+    
+    if remaining_budget > 0:
+        upgrade_iterations = 3 # Try multiple passes
+        for _ in range(upgrade_iterations):
+            for slot in slots:
+                s_name = slot['name']
+                s_pool = slot['pool'] if slot['pool'] else all_candidates
                 
-                if total_price + item['price'] <= daily_budget:
-                    meal_groups[target_slot].append(item)
-                    total_price += item['price']
-                    total_cals += item['calories']
-                    total_prot += item['protein']
-                if total_cals >= target_calories:
-                    break
+                # Try to swap each item in the slot for a "better" one
+                for i, current_item in enumerate(meal_groups[s_name]):
+                    # Look for a candidate that is better (Higher protein or more calories)
+                    # but still within the remaining budget
+                    best_upgrade = None
+                    max_protein_gain = 0
+                    
+                    for candidate in s_pool:
+                        if any(item['name'] == candidate['name'] for item in meal_groups[s_name]):
+                            continue
+                        
+                        price_diff = candidate['price'] - current_item['price']
+                        if 0 < price_diff <= remaining_budget:
+                            protein_gain = candidate['protein'] - current_item['protein']
+                            # Priority: Increase Protein, then Calories
+                            if protein_gain > max_protein_gain:
+                                max_protein_gain = protein_gain
+                                best_upgrade = candidate
+                            elif protein_gain == max_protein_gain and candidate['calories'] > current_item['calories']:
+                                best_upgrade = candidate
+                    
+                    if best_upgrade:
+                        # Perform the swap
+                        price_diff = best_upgrade['price'] - current_item['price']
+                        remaining_budget -= price_diff
+                        total_price += price_diff
+                        total_cals += (best_upgrade['calories'] - current_item['calories'])
+                        total_prot += (best_upgrade['protein'] - current_item['protein'])
+                        
+                        meal_groups[s_name][i] = best_upgrade
+
+    # PHASE 3: FINAL POLISH (Sides and Snacks)
+    # If we still have budget, add sides/snacks until we hit ~100% budget usage
+    if remaining_budget > 0 and pool_sides:
+        for _ in range(5): # Limit additional sides
+            if remaining_budget <= 0: break
             
-        # --- SCORING logic ---
-        # Reward Higher Budget Usage (closer to 1.0 is better, so (1.0 - budget_score) is lower/better)
-        # --- SCORING logic (v5: Calorie Precision + Price Saver) ---
-        # 1. Calorie Accuracy (Primary Goal)
-        cal_error = abs(target_calories - total_cals) / target_calories
-        
-        # 2. Price Saver (Secondary Goal: lower is better)
-        price_ratio = total_price / daily_budget
-        
-        # 3. Protein Bonus (Nice to have)
-        # protein_bonus already calculated above
-        
-        # Final Score: heavy on cal_error, moderate on price_ratio
-        score = (cal_error * 15.0) + (price_ratio * 2.0) - (protein_bonus * 0.5)
-        
-        if score < best_score:
-            best_score = score
-            best_plan = meal_groups
-            best_stats = {
-                'total_price': round(total_price, 1),
-                'total_calories': int(total_cals),
-                'total_protein': int(total_prot)
-            }
+            target_slot = random.choice(list(meal_groups.keys()))
+            side = random.choice(pool_sides)
+            
+            if any(m['name'] == side['name'] for m in meal_groups[target_slot]): continue
+            
+            if side['price'] <= remaining_budget:
+                meal_groups[target_slot].append(side)
+                remaining_budget -= side['price']
+                total_price += side['price']
+                total_cals += side['calories']
+                total_prot += side['protein']
+
+    # Edge Case Notification: If we are still way off calories
+    plan_warning = ""
+    if total_cals < target_calories * 0.95:
+        plan_warning = "Budget may be too low for your calorie target. Recommending the most calorie-dense items possible."
+
+    best_plan = meal_groups
+    best_stats = {
+        'total_price': round(total_price, 1),
+        'total_calories': int(total_cals),
+        'total_protein': int(total_prot),
+        'warning': plan_warning
+    }
     
     # Fallback to simple plan if optimization failed
     if not best_plan:
@@ -1560,17 +1572,13 @@ def generate_plan(request):
                 "image": item.get('image', ''),
                 "id": item.get('id')
             })
-            
-    # Calculate totals
-    total_cost = sum(item['price'] for items in best_plan.values() for item in items)
-    total_calories = sum(item['calories'] for items in best_plan.values() for item in items)
-    total_protein = sum(item['protein'] for items in best_plan.values() for item in items)
-        
+    
     return Response({
         "plan": final_response,
-        "total_cost": total_cost,
-        "total_calories": total_calories,
-        "total_protein": total_protein,
+        "total_cost": best_stats['total_price'],
+        "total_calories": best_stats['total_calories'],
+        "total_protein": best_stats['total_protein'],
+        "warning": best_stats.get('warning', ''),
         "meals_count": int(meals_count)
     })
 
