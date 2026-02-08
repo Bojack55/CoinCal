@@ -1587,7 +1587,7 @@ def generate_plan(request):
         for slot in slots:
             slot_targets[slot['name']] = {
                 'cal_target': int(target_calories * slot['pct']),
-                'budget_target': daily_budget * Decimal(str(slot['pct']))
+                'budget_target': float(daily_budget) * float(slot['pct'])
             }
         
         # We still iterate by size (biggest meals first) but respect individual limits
