@@ -114,6 +114,9 @@ class UserProfile(TimeStampedModel):
     current_hydration_streak = models.IntegerField(default=0)
     best_hydration_streak = models.IntegerField(default=0)
     current_weight = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text='Current weight for diet planning')
+    
+    # Diet Planner V7: Variation Tracking
+    last_plan_variant = models.IntegerField(default=0, help_text='Tracks the last used diet plan strategy (0-4) for rotation.')
 
     def save(self, *args, **kwargs):
         from .utils.nutrition import calculate_bmr, calculate_tdee, get_caloric_balance

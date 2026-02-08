@@ -1404,21 +1404,77 @@ def generate_plan(request):
     
     slots = configs.get(meals_count, configs[3])
     
-    iterations = 1 # Not used in v6, keeping for structure if needed
+    iterations = 1 
     
-    # --- Diet Planner v6: Greedy + Upgrade Algorithm ---
+    # --- Diet Planner v7: 5-Strategy Rotation System ---
     
-    # 0. Efficiency Sorting
-    # Helper to get efficiency (cals per EGP)
-    def efficiency(item):
-        return item['calories'] / max(0.1, item['price'])
+    # 1. Determine Strategy
+    # Strategies: 
+    # 0 = Balanced (Efficiency Focus)
+    # 1 = High Protein
+    # 2 = Budget Saver (Cheapest First)
+    # 3 = Carb Focus (Energy)
+    # 4 = Variety Shuffle (Randomized Efficient)
+    
+    STRATEGY_NAMES = [
+        "Balanced (Standard)",
+        "High Protein",
+        "Budget Saver",
+        "High Energy (Carbs)",
+        "Variety Shuffle"
+    ]
+    
+    current_variant = (profile.last_plan_variant + 1) % 5
+    strategy_name = STRATEGY_NAMES[current_variant]
+    
+    # Update user profile for next rotation (save at end or now)
+    profile.last_plan_variant = current_variant
+    profile.save()
+    
+    # 2. Define Sorting/Filtering Logic per Strategy
+    def get_sort_key(item, variant):
+        # Base efficiency
+        eff = item['calories'] / max(0.1, item['price'])
+        
+        if variant == 0: # Balanced
+            return eff
+        elif variant == 1: # Protein
+            # Boost protein-heavy items score
+            return (item['protein'] * 10) + eff
+        elif variant == 2: # Budget
+            # Negative price (lower is better)
+            return -item['price']
+        elif variant == 3: # Carbs
+            # We don't have explicit carbs in dict, but assume calories correlates or fetch if possible.
+            # Fallback to efficiency but maybe ignore protein weight
+            return eff 
+        elif variant == 4: # Variety
+            # Random score
+            return random.random()
+        return eff
 
-    # Pre-sort all pools by efficiency descending
-    pool_breakfast.sort(key=efficiency, reverse=True)
-    pool_lunch.sort(key=efficiency, reverse=True)
-    pool_dinner.sort(key=efficiency, reverse=True)
-    pool_snack.sort(key=efficiency, reverse=True)
-    pool_sides.sort(key=efficiency, reverse=True)
+    # Helper to apply strategy sort
+    def apply_strategy_sort(pool, variant):
+        # For High Protein, we might want to pre-filter
+        if variant == 1:
+             # Move high protein items to front
+             pool.sort(key=lambda x: x['protein'], reverse=True)
+             return
+             
+        # For Variety, just shuffle
+        if variant == 4:
+            random.shuffle(pool)
+            return
+
+        # For others, use the sort key
+        pool.sort(key=lambda x: get_sort_key(x, variant), reverse=True)
+
+    # Apply Sort to ALL pools
+    apply_strategy_sort(pool_breakfast, current_variant)
+    apply_strategy_sort(pool_lunch, current_variant)
+    apply_strategy_sort(pool_dinner, current_variant)
+    apply_strategy_sort(pool_snack, current_variant)
+    apply_strategy_sort(pool_sides, current_variant)
     
     meal_groups = {slot['name']: [] for slot in slots}
     total_price = 0
@@ -1426,7 +1482,7 @@ def generate_plan(request):
     total_prot = 0
     
     # PHASE 1: CALORIE CAPTURE (Greedy Filling)
-    # Goal: Meet calorie target as cheaply as possible using efficient foods
+    # Goal: Meet calorie target using the STRATEGY-SORTED pools
     sorted_slots = sorted(slots, key=lambda x: x['pct'], reverse=True)
     calorie_debt = 0
     
@@ -1434,7 +1490,7 @@ def generate_plan(request):
         s_name = slot['name']
         s_target = int(target_calories * slot['pct']) + calorie_debt
         s_pool = slot['pool'] if slot['pool'] else all_candidates
-        s_pool = sorted(s_pool, key=efficiency, reverse=True) # Ensure efficiency sort
+        # s_pool is already sorted by strategy, no need to re-sort here
         
         slot_cals = 0
         for candidate in s_pool:
@@ -1579,6 +1635,8 @@ def generate_plan(request):
         "total_calories": best_stats['total_calories'],
         "total_protein": best_stats['total_protein'],
         "warning": best_stats.get('warning', ''),
+        "plan_variant": strategy_name,
+        "note": "Tap 'Generate Plan' again for a different variation!",
         "meals_count": int(meals_count)
     })
 
