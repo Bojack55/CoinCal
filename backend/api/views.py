@@ -1371,33 +1371,33 @@ def generate_plan(request):
     
     configs = {
         2: [ # Lunch 50%, Dinner 50%
-            {'name': 'lunch', 'pct': 0.50, 'pool': pool_lunch, 'sides': 1},
-            {'name': 'dinner', 'pct': 0.50, 'pool': pool_dinner, 'sides': 1},
+            {'name': 'lunch', 'pct': 0.50, 'pool': pool_lunch, 'sides': 3},
+            {'name': 'dinner', 'pct': 0.50, 'pool': pool_dinner, 'sides': 3},
         ],
         3: [ # Breakfast 25%, Lunch 40%, Dinner 35%
-            {'name': 'breakfast', 'pct': 0.25, 'pool': pool_breakfast, 'sides': 0},
-            {'name': 'lunch', 'pct': 0.40, 'pool': pool_lunch, 'sides': 2},
-            {'name': 'dinner', 'pct': 0.35, 'pool': pool_dinner, 'sides': 1},
+            {'name': 'breakfast', 'pct': 0.25, 'pool': pool_breakfast, 'sides': 2},
+            {'name': 'lunch', 'pct': 0.40, 'pool': pool_lunch, 'sides': 3},
+            {'name': 'dinner', 'pct': 0.35, 'pool': pool_dinner, 'sides': 3},
         ],
         4: [ # B 25, L 35, S 10, D 30
-           {'name': 'breakfast', 'pct': 0.25, 'pool': pool_breakfast, 'sides': 0},
-           {'name': 'lunch', 'pct': 0.35, 'pool': pool_lunch, 'sides': 1},
+           {'name': 'breakfast', 'pct': 0.25, 'pool': pool_breakfast, 'sides': 1},
+           {'name': 'lunch', 'pct': 0.35, 'pool': pool_lunch, 'sides': 2},
            {'name': 'snack_1', 'pct': 0.10, 'pool': pool_snack, 'sides': 0},
-           {'name': 'dinner', 'pct': 0.30, 'pool': pool_dinner, 'sides': 1},
+           {'name': 'dinner', 'pct': 0.30, 'pool': pool_dinner, 'sides': 2},
         ],
         5: [ # B 20, S 10, L 30, S 10, D 30
-           {'name': 'breakfast', 'pct': 0.20, 'pool': pool_breakfast, 'sides': 0},
+           {'name': 'breakfast', 'pct': 0.20, 'pool': pool_breakfast, 'sides': 1},
            {'name': 'snack_1', 'pct': 0.10, 'pool': pool_snack, 'sides': 0},
-           {'name': 'lunch', 'pct': 0.30, 'pool': pool_lunch, 'sides': 1},
+           {'name': 'lunch', 'pct': 0.30, 'pool': pool_lunch, 'sides': 2},
            {'name': 'snack_2', 'pct': 0.10, 'pool': pool_snack, 'sides': 0},
-           {'name': 'dinner', 'pct': 0.30, 'pool': pool_dinner, 'sides': 1},
+           {'name': 'dinner', 'pct': 0.30, 'pool': pool_dinner, 'sides': 2},
         ],
         6: [ # B 20, S 5, L 30, S 5, D 30, S 10
-           {'name': 'breakfast', 'pct': 0.20, 'pool': pool_breakfast, 'sides': 0},
+           {'name': 'breakfast', 'pct': 0.20, 'pool': pool_breakfast, 'sides': 1},
            {'name': 'snack_1', 'pct': 0.05, 'pool': pool_snack, 'sides': 0},
-           {'name': 'lunch', 'pct': 0.30, 'pool': pool_lunch, 'sides': 1},
+           {'name': 'lunch', 'pct': 0.30, 'pool': pool_lunch, 'sides': 2},
            {'name': 'snack_2', 'pct': 0.05, 'pool': pool_snack, 'sides': 0},
-           {'name': 'dinner', 'pct': 0.30, 'pool': pool_dinner, 'sides': 1},
+           {'name': 'dinner', 'pct': 0.30, 'pool': pool_dinner, 'sides': 2},
            {'name': 'snack_3', 'pct': 0.10, 'pool': pool_snack, 'sides': 0},
         ]
     }
@@ -1437,7 +1437,7 @@ def generate_plan(request):
             # Add Sides
             if max_sides > 0 and pool_sides:
                  for _ in range(max_sides):
-                     if slot_cals < s_target * 0.9 and total_price < daily_budget: 
+                      if slot_cals < s_target and total_price < daily_budget: 
                          side = random.choice(pool_sides)
                          
                          # Basic heuristic: don't add Rice to Rice
@@ -1468,7 +1468,8 @@ def generate_plan(request):
         # Stricter Calorie Matching (Minimize absolute error from target)
         cal_penalty = abs(target_calories - total_cals) / target_calories
         
-        score = budget_comp + (cal_penalty * 2.5) - (protein_bonus * 0.5)
+        # Priority: Calorie Accuracy > Budget Utilization > Protein
+        score = (cal_penalty * 5.0) + (budget_comp * 1.5) - (protein_bonus * 0.5)
         
         if score < best_score:
             best_score = score
