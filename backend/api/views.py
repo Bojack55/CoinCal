@@ -1453,21 +1453,29 @@ def generate_plan(request):
             return random.random()
         return eff
 
-    # Helper to apply strategy sort
+    # Helper to apply strategy sort with RANDOMIZATION (v8 fix)
     def apply_strategy_sort(pool, variant):
-        # For High Protein, we might want to pre-filter
-        if variant == 1:
-             # Move high protein items to front
+        # 1. Base Sort
+        if variant == 1: # High Protein
              pool.sort(key=lambda x: x['protein'], reverse=True)
+        elif variant == 2: # Budget
+             pool.sort(key=lambda x: x['price'])
+        elif variant == 4: # Variety
+             random.shuffle(pool)
              return
+        else: # Balanced / Carb
+             pool.sort(key=lambda x: get_sort_key(x, variant), reverse=True)
              
-        # For Variety, just shuffle
-        if variant == 4:
+        # 2. Top-Tier Shuffle (The "Variation Fix")
+        # Take the top 30 items, shuffle them, then append the rest
+        # This keeps quality high effectively but rotates the specific picks
+        top_n = 30
+        if len(pool) > top_n:
+            top_tier = pool[:top_n]
+            random.shuffle(top_tier)
+            pool[:top_n] = top_tier
+        else:
             random.shuffle(pool)
-            return
-
-        # For others, use the sort key
-        pool.sort(key=lambda x: get_sort_key(x, variant), reverse=True)
 
     # Apply Sort to ALL pools
     apply_strategy_sort(pool_breakfast, current_variant)
@@ -1481,35 +1489,64 @@ def generate_plan(request):
     total_cals = 0
     total_prot = 0
     
-    # PHASE 1: CALORIE CAPTURE (Greedy Filling)
-    # Goal: Meet calorie target using the STRATEGY-SORTED pools
+    # PHASE 1: CALORIE CAPTURE (Per-Slot Targets)
+    # v8 Change: Calculate explicit target per slot BEFORE selection to prevent front-loading
+    
+    # Calculate Base Targets for ALL slots first
+    slot_targets = {}
+    for slot in slots:
+        slot_targets[slot['name']] = {
+            'cal_target': int(target_calories * slot['pct']),
+            'budget_target': daily_budget * Decimal(str(slot['pct']))
+        }
+    
+    # We still iterate by size (biggest meals first) but respect individual limits
     sorted_slots = sorted(slots, key=lambda x: x['pct'], reverse=True)
-    calorie_debt = 0
+    
+    remaining_global_budget = daily_budget
+    remaining_global_cals = target_calories
     
     for slot in sorted_slots:
         s_name = slot['name']
-        s_target = int(target_calories * slot['pct']) + calorie_debt
+        targets = slot_targets[s_name]
+        
+        s_cal_target = targets['cal_target']
+        s_nudget_limit = targets['budget_target']
+        
+        # Allow small overflow for main meals (Breakfast/Lunch/Dinner)
+        # to ensure we don't under-eat just because of strict math
+        if slot['pct'] > 0.15:
+            s_cal_target = int(s_cal_target * 1.1)
+            s_nudget_limit = s_nudget_limit * Decimal('1.1')
+            
         s_pool = slot['pool'] if slot['pool'] else all_candidates
-        # s_pool is already sorted by strategy, no need to re-sort here
+        # s_pool is already strategy-sorted & randomized
         
         slot_cals = 0
+        slot_price = 0
+        
         for candidate in s_pool:
             if any(item['name'] == candidate['name'] for item in meal_groups[s_name]):
                 continue
             
-            # Simple greedy: if we still need calories, add it if budget allows
-            if total_price + candidate['price'] <= daily_budget:
-                meal_groups[s_name].append(candidate)
-                total_price += candidate['price']
-                total_cals += candidate['calories']
-                total_prot += candidate['protein']
-                slot_cals += candidate['calories']
-            
-            if slot_cals >= s_target:
+            # Check 1: Does it fit in GLOBAL remaining?
+            if (total_price + candidate['price']) > daily_budget:
+                continue
+                
+            # Check 2: Does it fit in SLOT limit?
+            # We allow adding if we haven't hit the slot target yet
+            if slot_cals < s_cal_target:
+                 # Add it!
+                 meal_groups[s_name].append(candidate)
+                 total_price += candidate['price']
+                 total_cals += candidate['calories']
+                 total_prot += candidate['protein']
+                 
+                 slot_cals += candidate['calories']
+                 slot_price += candidate['price']
+            else:
+                # Slot is full
                 break
-        
-        # Calculate debt/excess for next slot
-        calorie_debt = s_target - slot_cals
 
     # PHASE 2: QUALITY UPGRADE (Budget Expansion)
     # Goal: Use remaining budget to "upgrade" items to more expensive, high-protein versions
@@ -1529,7 +1566,12 @@ def generate_plan(request):
                     best_upgrade = None
                     max_protein_gain = 0
                     
-                    for candidate in s_pool:
+                    # Optimization: Shuffle pool slightly to avoid deterministic upgrades
+                    # taking only top 50 to avoid checking everything
+                    check_pool = s_pool[:50]
+                    random.shuffle(check_pool)
+                    
+                    for candidate in check_pool:
                         if any(item['name'] == candidate['name'] for item in meal_groups[s_name]):
                             continue
                         
