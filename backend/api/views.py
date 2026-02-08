@@ -1432,6 +1432,7 @@ def generate_plan(request):
         meals_count = max(1, min(10, meals_count)) # Support 1-10 meals
     
         # v9: Dynamic Slot Configuration for ANY N meals (1-10)
+        print(f"[DEBUG v9] Starting slot config for meals_count={meals_count}")
         # Instead of hardcoded configs, we generate them algorithmically.
     
         slots = []
@@ -1497,6 +1498,7 @@ def generate_plan(request):
              
             slots = new_slots
         
+        print(f"[DEBUG v9] Slots configured. Count: {len(slots)}")
         iterations = 1 
         
         # --- Diet Planner v7: 5-Strategy Rotation System ---
@@ -1512,6 +1514,7 @@ def generate_plan(request):
         
         current_variant = (profile.last_plan_variant + 1) % 5
         strategy_name = STRATEGY_NAMES[current_variant]
+        print(f"[DEBUG v9] Strategy selected: {strategy_name}")
         
         # Update user profile for next rotation (save at end or now)
         profile.last_plan_variant = current_variant
@@ -1782,6 +1785,7 @@ def generate_plan(request):
                     "id": item.get('id')
                 })
         
+        print(f"[DEBUG v9] Loop done. Plan items: {len(final_response)}")
         return Response({
             "plan": final_response,
             "total_cost": best_stats['total_price'],
