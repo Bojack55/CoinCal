@@ -1,175 +1,135 @@
-# CoinCal - Nutrition Budget Tracker
+# 🪙 CoinCal - Master Your Plate & Budget
 
+**CoinCal** is a smart nutrition and budget tracking application designed specifically for the Egyptian market. It helps users achieve their fitness goals without breaking the bank by balancing calorie targets with daily financial limits.
 
-A comprehensive nutrition and budget tracking application that helps you master your plate and budget. Built with Flutter (mobile) and Django (backend).
+## 🚀 Key Features
 
-## Features
+### 🍎 Smart Nutrition & Budgeting
+*   **Dual Tracking**: Monitor both your daily calorie intake and food spending in real-time.
+*   **Market Integration**: Live prices for local Egyptian ingredients and meals (e.g., Koshary, Foul, Falafel).
+*   **Efficiency Score**: "Smart Sort" algorithms to find meals that give you the most protein/calories per EGP.
 
-### Core Functionality
-- 💰 **Budget Tracking**: Monitor daily spending on meals with real-time budget calculations
-- 🍎 **Calorie Tracking**: Track calories eaten vs. daily goals with macro breakdowns
-- 📊 **Smart Dashboard**: Visual HUD cards showing budget, calories, and progress
-- 💧 **Hydration Tracker**: Log water intake with +/- controls
-- ⚖️ **Weight Management**: Track weight over time with chart visualization
-- 🗓️ **Timeline View**: Last 7 days quick navigation
+### 🍽️ Meal Management
+*   **Kitchen & Pantry**: Manage your inventory of ingredients.
+*   **Recipe Studio**: Create custom recipes from your pantry items and calculate their exact cost and nutrition.
+*   **Egyptian Food Database**: comprehensive database of local dishes with accurate macro-nutrient data.
+*   **Price Review**: Community-driven price validation system.
 
-### Food Management
-- 🔍 **Smart Food Database**: Browse Egyptian meals with calculated nutrition
-- 🏪 **Restaurant Integration**: Prices and availability by location
-- 🏷️ **Smart Badges**: Auto-detect "Best Value" and "High Protein" options
-- 📝 **Meal Logging**: One-tap meal logging with preparation styles
-- 🔀 **Sort Options**: Default, Smart Efficiency, Price ranges
+### 📅 Planning & Tracking
+*   **AI Diet Planner**: Generate weekly diet plans that strictly adhere to your budget and calorie limits.
+*   **Cheat Day Mode**: Toggle "Cheat Day" to pause strict tracking while keeping your streaks alive.
+*   **Hydration Tracker**: Gamified water tracking with streaks, levels, and achievements (e.g., "Hydro Hero").
+*   **Weight Tracker**: Visual charts to monitor your weight progress over time.
 
-### Advanced Features
-- 🍽️ **Recipe Studio**: Create custom recipes with ingredient calculator
-- 📈 **Financial Analytics**: Visualize spending patterns
-- 🎯 **Diet Planner**: AI-powered meal suggestions
-- ⚡ **Quick Log**: Fast meal entry via calculator
-- 📍 **Location-Based Pricing**: Automatic price adjustments
+### 🌍 Localization
+*   **Bilingual Support**: Fully localized for **English** and **Arabic (العربية)**.
+*   **Currency**: Optimized for EGP (Egyptian Pound).
 
-## Tech Stack
+---
 
-### Frontend (Flutter)
-- **Framework**: Flutter 3.10.7
-- **State Management**: Provider pattern
-- **Charts**: fl_chart
-- **HTTP**: http package
-- **Storage**: shared_preferences
+## 🛠️ Tech Stack
 
-### Backend (Django)
-- **Framework**: Django 6.0
-- **Database**: SQLite (development)
-- **API**: REST endpoints (30+)
-- **Authentication**: Token-based auth
+### Frontend (Mobile)
+*   **Framework**: [Flutter](https://flutter.dev/)
+*   **State Management**: Provider
+*   **Charts**: `fl_chart` for visualization
+*   **Localization**: `easy_localization`
+*   **Navigation**: Custom Bottom Navigation Shell
 
-## Project Structure
+### Backend (API)
+*   **Framework**: [Django](https://www.djangoproject.com/) & Django REST Framework (DRF)
+*   **Database**: SQLite (Development)
+*   **Authentication**: Token-based Auth
+
+---
+
+## 📂 Project Structure
 
 ```
 CoinCal/
-├── backend/                 # Django backend
-│   ├── api/                # Main API app
-│   │   ├── models.py      # Database models
-│   │   ├── views.py       # API endpoints
-│   │   ├── serializers.py # Data serialization
-│   │   └── urls.py        # URL routing
-│   ├── fixtures/          # Data fixtures
-│   └── manage.py
+├── backend/                 # Django API & Admin
+│   ├── api/                 # Core Business Logic (Views, Models, Serializers)
+│   ├── fixtures/            # Pre-loaded Egyptian Meal Data
+│   └── manage.py            # Django Entry Point
 │
 └── frontend/
-    └── coincal_mobile/    # Flutter app
+    └── coincal_mobile/      # Flutter Mobile App
         ├── lib/
-        │   ├── models/    # Data models
-        │   ├── providers/ # State management
-        │   ├── screens/   # UI screens (15 total)
-        │   ├── services/  # API & business logic
-        │   ├── widgets/   # Reusable components
-        │   └── theme/     # App theming
-        └── assets/
-            └── images/    # Logo and assets
+        │   ├── screens/     # UI Screens (Kitchen, Diet Planner, Profile, etc.)
+        │   ├── services/    # API Integration Service
+        │   ├── models/      # Data Models
+        │   └── assets/      # Translations & Images
+        └── pubspec.yaml     # Flutter Dependencies
 ```
 
-## Getting Started
+---
+
+## ⚡ Getting Started
 
 ### Prerequisites
-- Flutter SDK 3.10.7+
-- Python 3.10+
-- Git
+*   Python 3.10+
+*   Flutter SDK (Latest Stable)
+*   Git
 
-### Backend Setup
+### 1. Backend Setup
 
 ```bash
+# Navigate to backend directory
 cd backend
 
-# Create virtual environment
+# Create and activate virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Windows:
+venv\Scripts\activate
+# Mac/Linux:
+source venv/bin/activate
 
 # Install dependencies
-pip install django djangorestframework django-cors-headers
+pip install -r requirements.txt
 
-# Run migrations
+# Run Migrations
 python manage.py migrate
 
-# Load initial data
+# Load Initial Data (Egyptian Meals)
 python manage.py loaddata fixtures/egyptian_master_menu.json
 
-# Start server
-python manage.py runserver 8000
+# Start the Server
+python manage.py runserver 0.0.0.0:8000
 ```
 
-### Frontend Setup
+### 2. Frontend Setup
 
 ```bash
+# Navigate to flutter project
 cd frontend/coincal_mobile
 
 # Install dependencies
 flutter pub get
 
-# Run on web
-flutter run -d chrome
+# Generate Localization Keys (if needed)
+flutter pub run easy_localization:generate
 
-# Or build for production
-flutter build web --release
+# Run on Emulator/Device
+flutter run
 ```
 
-## API Endpoints
+---
 
-### Authentication
-- `POST /api/register/` - User registration
-- `POST /api/login/` - User login
+## 🔌 API Reference
 
-### Dashboard
-- `GET /api/dashboard/` - Get dashboard data
-- `GET /api/dashboard/?date=YYYY-MM-DD` - Get data for specific date
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| **GET** | `/api/dashboard/` | Get daily summary (calories, budget, macros) |
+| **GET** | `/api/foods/` | List all foods with efficiency scores |
+| **POST** | `/api/log/` | Log a meal to your daily history |
+| **POST** | `/api/custom-meal-from-ingredients/` | Create a custom meal from pantry items |
+| **POST** | `/api/generate-plan/` | Generate a budget-friendly diet plan |
+| **POST** | `/api/toggle-day-status/` | Switch between Standard and Cheat Day |
+| **POST** | `/api/water/` | Increment water intake |
+| **GET** | `/api/egyptian-meals/` | Search local Egyptian database |
 
-### Food Management
-- `GET /api/foods/` - List all foods
-- `POST /api/log/` - Log a meal
-- `GET /api/search-food/?query=<term>` - Search foods
-- `POST /api/custom-meal/` - Create custom meal
+---
 
-### Tracking
-- `POST /api/water/` - Update water intake
-- `GET /api/weight/` - Get weight history
-- `POST /api/weight/` - Log weight
+## 🛡️ License
 
-### Egyptian Meals
-- `GET /api/egyptian-meals/` - List all Egyptian meals
-- `GET /api/egyptian-meals/<id>/` - Get meal details
-- `GET /api/egyptian-meals/<id>/calculate/?weight_g=<grams>` - Calculate nutrition
-
-## Configuration
-
-### Backend (.env)
-```env
-DEBUG=True
-SECRET_KEY=your-secret-key
-ALLOWED_HOSTS=localhost,127.0.0.1
-```
-
-### Frontend (lib/config/api_config.dart)
-```dart
-static String get baseUrl => 'http://127.0.0.1:8000/api';
-```
-
-## Testing
-
-The project has been professionally tested with:
-- ✅ 36 test cases executed
-- ✅ Zero bugs found
-- ✅ Production build verified
-- ✅ Code quality: Excellent
-
-See `test_report.md` for full test documentation.
-
-## Screenshots
-
-_Coming soon_
-
-## License
-
-Private Project
-
-## Author
-
-*Moaz*
+Private Project. All specific food data and pricing algorithms are proprietary.
