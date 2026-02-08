@@ -1818,8 +1818,6 @@ def generate_plan(request):
              # Implementing soft error (Warning) to prevent UI crashes, but robust feedback.
              
         final_response = []
-                        
-                            meal_groups[s_name][i] = best_upgrade
 
         # PHASE 3: FINAL POLISH (Sides and Snacks)
         # If we still have budget, add sides/snacks until we hit ~100% budget usage
