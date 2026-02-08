@@ -1970,6 +1970,52 @@ def get_smart_feed(request):
     
     return Response(final_feed)
 
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def debug_diet_plan(request):
+    """Debug endpoint to check system status (Temporary)"""
+    
+    debug_info = {}
+    
+    # Check MarketPrice database (Global items)
+    try:
+        mp_count = MarketPrice.objects.count()
+        debug_info['market_price_db'] = {
+            'count': mp_count,
+            'status': 'OK' if mp_count > 0 else 'EMPTY'
+        }
+        
+        if mp_count > 0:
+            sample = MarketPrice.objects.select_related('meal').first()
+            if sample and sample.meal:
+                debug_info['sample_market_item'] = {
+                    'name': sample.meal.name,
+                    'calories': sample.meal.calories,
+                    'price': str(sample.price_egp)
+                }
+    except Exception as e:
+        debug_info['market_price_db'] = {'error': str(e)}
+
+    # Check EgyptianMeal database (Local items)
+    try:
+        em_count = EgyptianMeal.objects.count()
+        debug_info['egyptian_meal_db'] = {
+            'count': em_count,
+            'status': 'OK' if em_count > 0 else 'EMPTY'
+        }
+        
+        if em_count > 0:
+            sample = EgyptianMeal.objects.first()
+            debug_info['sample_egyptian_meal'] = {
+                'name': sample.name_en,
+                'id': sample.id
+            }
+    except Exception as e:
+        debug_info['egyptian_meal_db'] = {'error': str(e)}
+    
+    return Response(debug_info)
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def financial_analytics(request):

@@ -37,5 +37,6 @@ urlpatterns = [
     path('meal-history/', views.get_meal_history, name='meal-history'),
     path('timeline/', views.get_timeline, name='get-timeline'),
     path('toggle-day-status/', views.toggle_day_status, name='toggle-day-status'),
+    path('debug-diet-plan/', views.debug_diet_plan, name='debug-diet-plan'),
 ]
 
