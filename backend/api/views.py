@@ -1373,23 +1373,23 @@ def generate_plan(request):
                  # Calculate stats on the fly
                  total_cals = 0
                  total_prot = 0
-                 total_cost = Decimal('0.0')
+                 total_cost = 0.0
              
                  for r_item in recipe.items.all():
                      ing = r_item.ingredient
-                     scale = Decimal('0')
+                     scale = 0.0
                      if ing.unit in ['GRAM', 'ML']:
-                         scale = r_item.amount / Decimal('100')
+                         scale = float(r_item.amount) / 100.0
                      else:
                           # Fallback for PIECE/Other
-                          scale = r_item.amount
+                          scale = float(r_item.amount)
  
-                     total_cals += float(ing.calories_per_100g * scale)
-                     total_prot += float(ing.protein_per_100g * scale)
+                     total_cals += float(ing.calories_per_100g) * scale
+                     total_prot += float(ing.protein_per_100g) * scale
                      # Price per unit logic
                      # If unit is GRAM, price_per_unit is usually price per kg/g?
                      # Standard Ingredient model has price_per_unit. Assuming it aligns.
-                     total_cost += (r_item.amount * ing.price_per_unit)
+                     total_cost += float(r_item.amount) * float(ing.price_per_unit)
              
                  if recipe.servings > 0:
                      s_cals = int(total_cals / recipe.servings)
@@ -1575,9 +1575,9 @@ def generate_plan(request):
         apply_strategy_sort(pool_sides, current_variant)
         
         meal_groups = {slot['name']: [] for slot in slots}
-        total_price = 0
+        total_price = 0.0
         total_cals = 0
-        total_prot = 0
+        total_prot = 0.0
         
         # PHASE 1: CALORIE CAPTURE (Per-Slot Targets)
         # v8 Change: Calculate explicit target per slot BEFORE selection to prevent front-loading
@@ -1586,7 +1586,7 @@ def generate_plan(request):
         slot_targets = {}
         for slot in slots:
             slot_targets[slot['name']] = {
-                'cal_target': int(target_calories * slot['pct']),
+                'cal_target': int(target_calories * float(slot['pct'])),
                 'budget_target': float(daily_budget) * float(slot['pct'])
             }
         
@@ -1602,21 +1602,21 @@ def generate_plan(request):
         
             # Allow small overflow for main meals (Breakfast/Lunch/Dinner)
             # to ensure we don't under-eat just because of strict math
-            if slot['pct'] > 0.15:
+            if float(slot['pct']) > 0.15:
                 s_cal_target = int(s_cal_target * 1.1)
-                s_nudget_limit = s_nudget_limit * Decimal('1.1')
+                s_nudget_limit = s_nudget_limit * 1.1
             
             s_pool = slot['pool'] if slot['pool'] else all_candidates
         
             slot_cals = 0
-            slot_price = 0
+            slot_price = 0.0
         
             for candidate in s_pool:
                 if any(item['name'] == candidate['name'] for item in meal_groups[s_name]):
                     continue
             
                 # Check 1: Does it fit in GLOBAL remaining?
-                if (total_price + candidate['price']) > daily_budget:
+                if (total_price + candidate['price']) > float(daily_budget):
                     continue
                 
                 # Check 2: Does it fit in SLOT limit?
@@ -1636,7 +1636,7 @@ def generate_plan(request):
 
         # PHASE 2: QUALITY UPGRADE (Budget Expansion)
         # Goal: Use remaining budget to "upgrade" items to more expensive, high-protein versions
-        remaining_budget = daily_budget - total_price
+        remaining_budget = float(daily_budget) - total_price
         
         if remaining_budget > 0:
             upgrade_iterations = 3 # Try multiple passes
