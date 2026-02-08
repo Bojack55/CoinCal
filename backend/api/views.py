@@ -1404,7 +1404,7 @@ def generate_plan(request):
     
     slots = configs.get(meals_count, configs[3])
     
-    iterations = 5000
+    iterations = 6000
     for _ in range(iterations):
         meal_groups = {}
         total_price = 0
@@ -1434,23 +1434,26 @@ def generate_plan(request):
             total_cals += main['calories']
             total_prot += main['protein']
             
-            # Add Sides
-            if max_sides > 0 and pool_sides:
-                 for _ in range(max_sides):
+            # Add Sides Aggressively
+            if pool_sides:
+                 # Try to add until slot target is met, up to 6 items per slot
+                 for i in range(6): 
                       if slot_cals < s_target and total_price < daily_budget: 
-                         side = random.choice(pool_sides)
-                         
-                         # Basic heuristic: don't add Rice to Rice
-                         if 'rice' in main['name'].lower() and 'rice' in side['name'].lower():
-                             continue
-                             
-                         if total_price + side['price'] <= daily_budget:
-                             items.append(side)
-                             slot_price += side['price']
-                             slot_cals += side['calories']
-                             total_price += side['price']
-                             total_cals += side['calories']
-                             total_prot += side['protein']
+                          side = random.choice(pool_sides)
+                          
+                          # Heuristic: avoid duplicate types in same meal
+                          if any(item['name'] == side['name'] for item in items):
+                              continue
+                              
+                          if total_price + side['price'] <= daily_budget:
+                              items.append(side)
+                              slot_price += side['price']
+                              slot_cals += side['calories']
+                              total_price += side['price']
+                              total_cals += side['calories']
+                              total_prot += side['protein']
+                      else:
+                          break
             
             meal_groups[s_name] = items
             
@@ -1460,6 +1463,19 @@ def generate_plan(request):
         
         if not valid_iter:
             continue
+            
+        # Final "Filler" Pass: If still under target and have budget, add more sides to random slots
+        if total_cals < target_calories * 0.98 and total_price < daily_budget * 0.95 and pool_sides:
+            for _ in range(5): # Extra filler attempts
+                target_slot = random.choice(list(meal_groups.keys()))
+                side = random.choice(pool_sides)
+                if total_price + side['price'] <= daily_budget:
+                    meal_groups[target_slot].append(side)
+                    total_price += side['price']
+                    total_cals += side['calories']
+                    total_prot += side['protein']
+                if total_cals >= target_calories:
+                    break
             
         # --- SCORING logic ---
         # Reward Higher Budget Usage (closer to 1.0 is better, so (1.0 - budget_score) is lower/better)
