@@ -1802,6 +1802,9 @@ def generate_plan(request):
             "error": "Diet plan generation error",
             "details": f"Exception: {str(e)}"
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    # Failsafe return (should never be reached if try/except works)
+    return Response({"error": "Unknown system error (Fallthrough)"}, status=500)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
