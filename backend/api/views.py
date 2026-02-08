@@ -1494,22 +1494,27 @@ def generate_plan(request):
             
         # --- SCORING logic ---
         # Reward Higher Budget Usage (closer to 1.0 is better, so (1.0 - budget_score) is lower/better)
-        budget_comp = 1.0 - (total_price / daily_budget)
+        # --- SCORING logic (v5: Calorie Precision + Price Saver) ---
+        # 1. Calorie Accuracy (Primary Goal)
+        cal_error = abs(target_calories - total_cals) / target_calories
         
-        # Stricter Calorie Matching (Minimize absolute error from target)
-        cal_penalty = abs(target_calories - total_cals) / target_calories
+        # 2. Price Saver (Secondary Goal: lower is better)
+        price_ratio = total_price / daily_budget
         
-        # Priority: Calorie Accuracy > Budget Exhaustion > Protein
-        # Only reward budget usage if calories are still NOT met
-        budget_reward = 0
-        if total_cals < target_calories:
-            budget_reward = (total_price / daily_budget) * -1.0 # Negative score is better
+        # 3. Protein Bonus (Nice to have)
+        # protein_bonus already calculated above
         
-        score = (cal_penalty * 8.0) + (budget_reward * 2.0) - (protein_bonus * 0.5)
+        # Final Score: heavy on cal_error, moderate on price_ratio
+        score = (cal_error * 15.0) + (price_ratio * 2.0) - (protein_bonus * 0.5)
         
         if score < best_score:
             best_score = score
             best_plan = meal_groups
+            best_stats = {
+                'total_price': round(total_price, 1),
+                'total_calories': int(total_cals),
+                'total_protein': int(total_prot)
+            }
     
     # Fallback to simple plan if optimization failed
     if not best_plan:
