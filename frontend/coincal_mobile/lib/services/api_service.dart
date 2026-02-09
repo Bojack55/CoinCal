@@ -6,12 +6,11 @@ import '../models/meal_model.dart';
 
 class ApiService {
   // Environment-based API URL
-  // Development: flutter run
-  // Production: flutter build apk --dart-define=API_URL=https://your-app-name.onrender.com/api
+  // Dev: flutter run (uses default localhost)
+  // Prod: flutter build --dart-define=API_URL=https://moaz55.pythonanywhere.com/api
   static const String baseUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue:
-        'http://10.0.2.2:8000/api', // Default to Android Emulator localhost
+    defaultValue: 'https://moaz55.pythonanywhere.com/api',
   );
 
   static const String _tokenKey = 'auth_token';

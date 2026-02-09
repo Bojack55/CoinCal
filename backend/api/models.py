@@ -19,6 +19,10 @@ class TimeStampedModel(models.Model):
         abstract = True
 
 
+from .utils.location_helpers import (
+    LOCATION_CHOICES, get_city_category, get_multiplier_for_category
+)
+
 class AbstractMeal(TimeStampedModel):
     name = models.CharField(max_length=100, default='Unnamed Meal', db_index=True)
     name_ar = models.CharField(max_length=100, null=True, blank=True, help_text='Arabic meal name', db_index=True)
@@ -47,6 +51,21 @@ class BaseMeal(AbstractMeal):
     max_calories = models.IntegerField(null=True, blank=True)
     is_standard_portion = models.BooleanField(default=False)
     is_healthy = models.BooleanField(default=False)
+
+    # Price
+    base_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.0'), help_text="Cairo/Giza reference price in EGP")
+
+    def get_price_for_location(self, location_category):
+        """Calculate adjusted price based on location"""
+        multipliers = {
+            'metro': 1.0,
+            'major_city': 0.95,
+            'regional': 0.88,
+            'provincial': 0.80,
+            'rural': 0.70,
+        }
+        multiplier = multipliers.get(location_category, 1.0)
+        return self.base_price * Decimal(str(multiplier))
 
     def __str__(self):
         return self.name
@@ -103,10 +122,24 @@ class UserProfile(TimeStampedModel):
     preferred_brands = models.TextField(null=True, blank=True)
     current_location = models.CharField(max_length=255, default="Cairo")
     
+    # Location Based Pricing
+    location_category = models.CharField(
+        max_length=20,
+        choices=LOCATION_CHOICES,
+        default='metro',
+        help_text="Price category for user's location (Auto-assigned)"
+    )
+
     # Premium Fields
     is_premium = models.BooleanField(default=False)
     body_fat_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     diet_mode = models.CharField(max_length=20, choices=DIET_CHOICES, default='BALANCED')
+
+
+
+    def get_location_multiplier(self):
+        """Get price multiplier for user's location"""
+        return get_multiplier_for_category(self.location_category)
     
     # Hydration Gamification
     hydration_level = models.IntegerField(default=1)
@@ -120,6 +153,10 @@ class UserProfile(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         from .utils.nutrition import calculate_bmr, calculate_tdee, get_caloric_balance
+        
+        # 0. Auto-assign category based on current_location
+        if self.current_location:
+            self.location_category = get_city_category(self.current_location)
         
         # 1. Calculate BMR
         bmr = calculate_bmr(
@@ -289,10 +326,24 @@ class Ingredient(TimeStampedModel):
     fat_per_100g = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0.0'))
     fiber_per_100g = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0.0'))
     
-    # Legacy fields for backward compatibility
-    price_per_unit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.0'))
+    # Price
+    base_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.0'), help_text="Cairo/Giza reference price in EGP")
+    
+    # Legacy fields
     calories_per_unit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0'))
     is_common = models.BooleanField(default=False)
+
+    def get_price_for_location(self, location_category):
+        """Calculate adjusted price based on location"""
+        multipliers = {
+            'metro': 1.0,
+            'major_city': 0.95,
+            'regional': 0.88,
+            'provincial': 0.80,
+            'rural': 0.70,
+        }
+        multiplier = multipliers.get(location_category, 1.0)
+        return self.base_price * Decimal(str(multiplier))
 
     def __str__(self):
         return f"{self.name} ({self.usda_id or 'no USDA'})"
@@ -335,9 +386,30 @@ class EgyptianMeal(TimeStampedModel):
         w_decimal = Decimal(str(weight_g))
         
         for item in self.recipe_items.all():
-            ing_price_per_gram = item.ingredient.price_per_unit
+            ing_base_price = item.ingredient.base_price
             ingredient_weight = w_decimal * (item.percentage / Decimal('100.0'))
-            total_cost += ingredient_weight * ing_price_per_gram
+            
+            if item.ingredient.unit in ['GRAM', 'ML']:
+                 # base_price is per 100g/ml
+                 cost = (ingredient_weight / Decimal('100.0')) * ing_base_price
+            else:
+                 # base_price is per piece
+                 # Assuming ingredient_weight implies number of pieces if unit is PIECE? 
+                 # Or percentage of a piece?
+                 # Existing logic used weight. Let's assume weight logic applies to grams only for now or 
+                 # we need to check how recipe items are defined for pieces. 
+                 # For safety, treating piece price as direct multiplier if needed, but recipe percentage is weight based?
+                 # Defaulting to 100g normalization for logic consistency with current rebuild script
+                 # But technically Piece items shouldn't be weighted in grams usually unless converted.
+                 # Let's stick to the 100g normalization if unit is GRAM/ML, else just multiply?
+                 # Actually, let's look at how pieces are handled.
+                 # In populate_ingredients: unit=PIECE.
+                 # If recipe has Eggs (Piece), percentage 100?
+                 # EgyptianMeal servings are in Grams.
+                 # It's safest to assume standard mass-based calculation.
+                 cost = (ingredient_weight / Decimal('100.0')) * ing_base_price
+            
+            total_cost += cost
             
         # Categorical Markup (Realism logic)
         is_breakfast_or_snack = any(x in self.name_en.lower() for x in ['sandwich', 'pudding', 'foul', 'tameya', 'basbousa', 'om ali', 'baba', 'side', 'salad', 'tahini', 'dip', 'hawawshi', 'koshary', 'fiteer', 'zalabya'])

@@ -1,0 +1,7 @@
+DEBUG START
+Imported.
+Declared Fields: ['price', 'name_ar', 'restaurant_name', 'restaurant_location', 'description', 'is_custom', 'is_estimated', 'category', 'protein', 'carbs', 'fats', 'fiber']
+Meal: Foul Medames (Plain)
+Instantiated.
+Fields: ['id', 'name', 'name_ar', 'calories', 'min_calories', 'max_calories', 'category', 'restaurant_name', 'restaurant_location', 'price', 'is_custom', 'is_estimated', 'protein', 'carbs', 'fats', 'fiber', 'serving_weight', 'is_healthy', 'is_standard_portion', 'description']
+SUCCESS.

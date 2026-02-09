@@ -306,13 +306,64 @@ class EgyptianMealUnifiedSerializer(serializers.ModelSerializer):
         return self._get_nut(obj)['fat']
 
     def get_price(self, obj):
-        return self._get_nut(obj)['price']
+        base_price = self._get_nut(obj)['price']
+        # Apply location multiplier from context
+        multiplier = self.context.get('location_multiplier', 1.0)
+        return round(float(base_price) * float(multiplier), 2)
 
     def get_min_calories(self, obj):
         return self.get_calories(obj)
 
     def get_max_calories(self, obj):
         return self.get_calories(obj)
+
+
+class LocationAwareBaseMealSerializer(serializers.ModelSerializer):
+    """
+    Serializer for BaseMeal that calculates price based on user location.
+    Replaces MarketPriceSerializer.
+    """
+    price = serializers.SerializerMethodField()
+    name_ar = serializers.CharField()
+    restaurant_name = serializers.SerializerMethodField()
+    restaurant_location = serializers.SerializerMethodField()
+    description = serializers.SerializerMethodField()
+    is_custom = serializers.ReadOnlyField(default=False)
+    is_estimated = serializers.ReadOnlyField(default=False)
+    category = serializers.CharField(source='meal_type')
+    
+    class Meta:
+        model = BaseMeal
+        fields = [
+            'id', 'name', 'name_ar', 'calories', 'min_calories', 'max_calories', 
+            'category', 'restaurant_name', 'restaurant_location', 
+            'price', 'is_custom', 'is_estimated', 'protein', 'carbs', 'fats', 'fiber', 'serving_weight',
+            'is_healthy', 'is_standard_portion', 'description'
+        ]
+        # Map fields to match frontend expectations (frontend expects protein, carbs, fats without _g suffix? 
+        # MarketPriceSerializer used source='meal.protein_g' named 'protein'.
+        # So I need to alias them.
+    
+    protein = serializers.DecimalField(source='protein_g', max_digits=8, decimal_places=2, read_only=True)
+    carbs = serializers.DecimalField(source='carbs_g', max_digits=8, decimal_places=2, read_only=True)
+    fats = serializers.DecimalField(source='fats_g', max_digits=8, decimal_places=2, read_only=True)
+    fiber = serializers.DecimalField(source='fiber_g', max_digits=8, decimal_places=2, read_only=True)
+
+    def get_price(self, obj):
+        multiplier = self.context.get('location_multiplier', 1.0)
+        # obj.base_price is Decimal
+        original_price = float(obj.base_price)
+        return round(original_price * float(multiplier), 2)
+
+    def get_restaurant_name(self, obj):
+        return "Market Average"
+
+    def get_restaurant_location(self, obj):
+        return self.context.get('city_name', 'Cairo')
+        
+    def get_description(self, obj):
+        return "Standard Meal Item"
+
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
