@@ -1174,11 +1174,15 @@ def generate_plan(request):
         egyptian_items = EgyptianMeal.objects.all().prefetch_related('recipe_items__ingredient')
         for item in egyptian_items:
             calc = item.calculate_nutrition()
-            price = float(calc['price'])
+            base_price = float(calc['price'])
             cals = float(calc['calories'])
             prot = float(calc['protein'])
         
-            if price > daily_budget: continue
+            # Apply location multiplier to Egyptian items for consistency
+            localized_price = base_price * float(multiplier)
+            
+            # Use localized price for budget check
+            if localized_price > daily_budget: continue
         
             data = {
                 'id': item.id,
@@ -1187,7 +1191,7 @@ def generate_plan(request):
                 'source': 'Traditional',
                 'calories': int(cals),
                 'protein': prot,
-                'price': price,
+                'price': round(localized_price, 2),
                 'type': 'egyptian',
                 'image': item.image_url
             }
@@ -1278,15 +1282,17 @@ def generate_plan(request):
  
                      total_cals += float(ing.calories_per_100g) * scale
                      total_prot += float(ing.protein_per_100g) * scale
-                     # Price per unit logic
-                     # If unit is GRAM, price_per_unit is usually price per kg/g?
-                     # Standard Ingredient model has price_per_unit. Assuming it aligns.
-                     total_cost += float(r_item.amount) * float(ing.price_per_unit)
+                     # Price per unit logic: GRAM/ML are per 100g/ml
+                     if ing.unit in ['GRAM', 'ML']:
+                         total_cost += (float(r_item.amount) / 100.0) * float(ing.base_price)
+                     else:
+                         total_cost += float(r_item.amount) * float(ing.base_price)
              
                  if recipe.servings > 0:
                      s_cals = int(total_cals / recipe.servings)
                      s_prot = int(total_prot / recipe.servings)
-                     s_price = float(total_cost / recipe.servings)
+                     # Apply location multiplier to raw ingredient cost
+                     s_price = (float(total_cost / recipe.servings)) * float(multiplier)
                  
                      custom_obj = {
                          'id': f"recipe_{recipe.id}",
@@ -1294,7 +1300,7 @@ def generate_plan(request):
                          'name_ar': recipe.name_ar,
                          'calories': s_cals,
                          'protein': s_prot,
-                         'price': s_price,
+                         'price': round(s_price, 2),
                          'source': 'Recipe Studio',
                          'type': 'custom',
                          'image': '',
@@ -1970,6 +1976,9 @@ def get_smart_feed(request):
         if price <= 0: continue
         
         eff = nutrition.get('calories', 0) / price
+        # Apply location multiplier
+        localized_price = float(price) * float(multiplier)
+        
         cats = categorize_egyptian(em.name_en, em.meal_id)
         
         feed_items.append({
@@ -1978,13 +1987,13 @@ def get_smart_feed(request):
             "name_ar": em.name_ar,
             "calories": nutrition.get('calories'),
             "protein": nutrition.get('protein'),
-            "price": round(price, 2),
+            "price": round(localized_price, 2),
             "image": em.image_url,
             "source": "Traditional",
             "tag": "Egyptian",
             "type": "egyptian",
             "categories": cats,
-            "_efficiency": eff
+            "_efficiency": nutrition.get('calories', 0) / localized_price if localized_price > 0 else 0
         })
 
     # Sort ALL by efficiency (Value for Money)
