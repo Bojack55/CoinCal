@@ -50,19 +50,19 @@ def _get_daily_metrics(profile, query_date):
         f = Decimal('0')
         
         if log.meal:
-            p = log.meal.protein_g
-            c = log.meal.carbs_g
-            f = log.meal.fats_g
+            p = Decimal(str(log.meal.protein_g or 0))
+            c = Decimal(str(log.meal.carbs_g or 0))
+            f = Decimal(str(log.meal.fats_g or 0))
         elif log.custom_meal:
-            p = log.custom_meal.protein_g
-            c = log.custom_meal.carbs_g
-            f = log.custom_meal.fats_g
+            p = Decimal(str(log.custom_meal.protein_g or 0))
+            c = Decimal(str(log.custom_meal.carbs_g or 0))
+            f = Decimal(str(log.custom_meal.fats_g or 0))
         elif log.egyptian_meal:
             # Calculate from ingredients
             nut = log.egyptian_meal.calculate_nutrition()
-            p = nut['protein']
-            c = nut['carbs']
-            f = nut['fat']
+            p = Decimal(str(nut.get('protein', 0)))
+            c = Decimal(str(nut.get('carbs', 0)))
+            f = Decimal(str(nut.get('fat', 0)))
             
         protein += p * qt * mod
         carbs += c * qt * mod
@@ -466,79 +466,72 @@ def create_custom_meal_from_ingredients(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_dashboard(request):
-    """
-    Retrieve comprehensive dashboard metrics for the authenticated user.
-    
-    Returns daily summary including calories consumed, budget spent, macros,
-    water intake, and progress towards goals. Optionally accepts a date
-    parameter for historical data.
-    
-    Query Parameters:
-        date (str, optional): Date in YYYY-MM-DD format (default: today)
+    try:
+        date_str = request.query_params.get('date')
+        if date_str:
+            query_date = date.fromisoformat(date_str)
+        else:
+            query_date = date.today()
+
+        profile = request.user.profile
+        metrics = _get_daily_metrics(profile, query_date)
+        summary = metrics.get('summary')
+        macros = metrics.get('macros', {"protein": 0.0, "carbs": 0.0, "fat": 0.0})
+
+        # Ensure summary exists
+        if not summary:
+            summary, _ = DailySummary.objects.get_or_create(user=profile, date=query_date)
+
+        user = request.user
+        full_name = f"{user.first_name} {user.last_name}".strip() if user.first_name else user.username
         
-    Returns:
-        Response: JSON with dashboard metrics
-            - date: Query date
-            - calories_consumed: Total calories for the day
-            - calorie_goal: User's target calories
-            - budget_spent: Money spent in EGP
-            - budget_limit: Daily budget limit
-            - macros: {protein, carbs, fats} in grams
-            - water_intake: Glasses of water consumed
-            - progress_percentage: Calorie goal completion %
-            
-    Example:
-        GET /api/dashboard/
-        GET /api/dashboard/?date=2026-02-05
-    """
-    date_str = request.query_params.get('date')
-    if date_str:
-        query_date = date.fromisoformat(date_str)
-    else:
-        query_date = date.today()
+        status_obj = DayStatus.objects.filter(user=profile, date=query_date).first()
+        day_status = status_obj.status if status_obj else 'standard'
+        
+        # Safe Budget & Calorie Math
+        budget_limit = float(profile.daily_budget_limit or 0)
+        budget_spent = float(summary.total_budget_spent or 0)
+        
+        cal_goal = int(profile.calorie_goal or 0)
+        cal_eaten = int(summary.total_calories_consumed or 0)
 
-    profile = request.user.profile
-    metrics = _get_daily_metrics(profile, query_date)
-    summary = metrics['summary']
-    macros = metrics['macros']
-
-    user = request.user
-    full_name = f"{user.first_name} {user.last_name}".strip() if user.first_name else user.username
-    
-    status_obj = DayStatus.objects.filter(user=profile, date=query_date).first()
-    day_status = status_obj.status if status_obj else 'standard'
-    
-    return Response({
-        "date": query_date.isoformat(),
-        "budget": {
-            "limit": float(profile.daily_budget_limit or 0),
-            "spent": float(summary.total_budget_spent or 0),
-            "remaining": float(max(Decimal('0'), profile.daily_budget_limit - summary.total_budget_spent))
-        },
-        "calories": {
-            "goal": float(profile.calorie_goal or 0),
-            "eaten": float(summary.total_calories_consumed or 0),
-            "remaining": float(max(0, (profile.calorie_goal or 0) - summary.total_calories_consumed))
-        },
-        "macros": macros,
-        "water": int(summary.water_intake_cups or 0),
-        "location": profile.current_location,
-        # User profile data for profile page
-        "full_name": full_name,
-        "current_weight": float(profile.weight) if profile.weight else None,
-        "height": float(profile.height) if profile.height else None,
-        "age": int(profile.age) if profile.age else None,
-        "gender": profile.gender,
-        "goal_weight": float(profile.goal_weight) if profile.goal_weight else None,
-        "ideal_weight": float(profile.ideal_weight) if profile.ideal_weight else None,
-        "activity_level": profile.activity_level,
-        "preferred_brands": profile.preferred_brands,
-        "is_premium": bool(profile.is_premium),
-        "body_fat": float(profile.body_fat_percentage) if profile.body_fat_percentage else None,
-        "diet_mode": profile.diet_mode,
-        "weight_history": WeightLogSerializer(profile.weight_logs.all().order_by('date'), many=True).data,
-        "day_status": day_status
-    })
+        return Response({
+            "date": query_date.isoformat(),
+            "budget": {
+                "limit": budget_limit,
+                "spent": budget_spent,
+                "remaining": round(max(0.0, budget_limit - budget_spent), 2)
+            },
+            "calories": {
+                "goal": cal_goal,
+                "eaten": cal_eaten,
+                "remaining": max(0, cal_goal - cal_eaten)
+            },
+            "macros": macros,
+            "water": int(summary.water_intake_cups or 0),
+            "location": str(profile.current_location or "Cairo"),
+            "full_name": str(full_name),
+            "current_weight": float(profile.current_weight or profile.weight or 0),
+            "height": float(profile.height or 0),
+            "age": int(profile.age or 0),
+            "gender": str(profile.gender or "M"),
+            "goal_weight": float(profile.goal_weight or 0),
+            "ideal_weight": float(profile.ideal_weight or 0),
+            "activity_level": str(profile.activity_level or "Moderate"),
+            "preferred_brands": str(profile.preferred_brands or ""),
+            "is_premium": bool(profile.is_premium),
+            "body_fat": float(profile.body_fat_percentage or 0),
+            "diet_mode": str(profile.diet_mode or "BALANCED"),
+            "weight_history": WeightLogSerializer(profile.weight_logs.all().order_by('date'), many=True).data,
+            "day_status": day_status
+        })
+    except Exception as e:
+        import traceback
+        return Response({
+            "error": "Dashboard failed to load",
+            "details": str(e),
+            "traceback": traceback.format_exc()
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET', 'POST'])
