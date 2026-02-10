@@ -1886,220 +1886,104 @@ def get_timeline(request):
 def get_smart_feed(request):
     """
     Retrieve curated smart meal recommendations for the user.
-    
-    Returns a personalized feed of high-value meals based on efficiency,
-    protein content, and Egyptian cuisine highlights. Categorizes meals
-    into sections: Efficiency Champions, Protein Powerhouses, and
-    Traditional Egyptian classics.
-    
-    Returns:
-        Response: JSON with categorized meal recommendations
-            {
-                "efficiency_champions": [top 5 meals by calories/EGP],
-                "protein_powerhouses": [top 5 high-protein meals],
-                "egyptian_highlights": {
-                    "breakfast": [...],
-                    "lunch": [...],
-                    "dinner": [...],
-                    "street_food": [...]
-                }
-            }
-            
-    Example:
-        GET /api/smart-feed/
     """
-    user_location = request.user.profile.current_location
+    profile = request.user.profile
+    multiplier = profile.get_location_multiplier()
+
+    # 1. High Efficiency Suggestions (Global/Market - Now via BaseMeal)
+    # Use BaseMeal directly to avoid MarketPrice dependency issues
+    base_meals = BaseMeal.objects.all().order_by('?')[:50]
     
-    # 1. High Efficiency Suggestions (Global/Market)
-    # Optimization: Filter by price and sample top 50 to avoid fetching entire DB
-    market_items = MarketPrice.objects.filter(price_egp__gt=0).select_related('meal', 'vendor').order_by('?')[:50]
-    efficiency_list = []
-    for mp in market_items:
-        price = float(mp.price_egp)
-        eff = float(mp.meal.calories) / price
-        efficiency_list.append((mp, eff))
+    feed_items = []
     
-    efficiency_list.sort(key=lambda x: x[1], reverse=True)
-    top_efficient = []
-    for mp, eff in efficiency_list[:8]: # Increase limit
-        tag = "Best Value"
-        if mp.meal.protein_g > 15:
-            tag = "High Protein"
+    # Process BaseMeals (Global)
+    for meal in base_meals:
+        # Calculate dynamic price
+        price = float(meal.base_price) * float(multiplier)
+        if price <= 0: continue
+            
+        eff = float(meal.calories) / price
         
-        # Heuristic for Global Items
-        cats = [mp.meal.meal_type] # Start with DB type
-        if mp.meal.meal_type == 'Lunch':
-             cats.append('Dinner') # Lunch items often good for dinner
-        elif mp.meal.meal_type == 'Dinner':
-             cats.append('Lunch')
-             
-        top_efficient.append({
-            "id": mp.meal.id,
-            "name": mp.meal.name,
-            "name_ar": getattr(mp.meal, 'name_ar', mp.meal.name),
-            "calories": mp.meal.calories,
-            "price": float(mp.price_egp),
-            "image": mp.meal.image_url,
-            "source": mp.vendor.name,
-            "tag": tag,
+        # Categorize
+        cats = [meal.meal_type]
+        if meal.meal_type == 'Lunch': cats.append('Dinner')
+        elif meal.meal_type == 'Dinner': cats.append('Lunch')
+        
+        feed_items.append({
+            "id": meal.id,
+            "name": meal.name,
+            "name_ar": meal.name_ar,
+            "calories": meal.calories,
+            "protein": meal.protein_g,
+            "price": round(price, 2),
+            "image": "", # Add placeholder URL or logic if available
+            "source": "Market",
+            "tag": "Best Value" if eff > 50 else "Standard",
             "type": "global",
-            "categories": list(set(cats)) # dedupe
+            "categories": cats,
+            "_efficiency": eff
         })
 
-    # 2. Traditional Favorites (Egyptian)
-    # Fetch ALL to categorize properly
+    # 2. Egyptian Meals (Traditional)
     egyptian_meals = EgyptianMeal.objects.all()
-    traditional_list = []
     
-    # Helper for Egyptian categorization
+    # Helper for Egyptian categorization (Inline for closure access)
     def categorize_egyptian(name, mid):
         mid = mid.lower()
         cats = []
         name_lower = name.lower()
         
-        # 1. Snack Logic (Strict - check first to avoid main meal confusion)
-        snack_keywords = [
-            'basbousa', 'zalabya', 'om_ali', 'om ali', 'pudding', 'halawa', 'honey', 
-            'sugar', 'sweet', 'konafa', 'kunafa', 'goulash_sweet', 'goulash sweet', 
-            'popcorn', 'corn', 'ice cream', 'ice_cream', 'dandourma', 'freska', 
-            'sobya', 'karkade', 'tamarind', 'meshbek', 'rice_crispy', 'crispy',
-            'nuts', 'qatayef', 'kahk', 'petit_four', 'petit four', 'ghorayeba',
-            'sable', 'chocolate', 'cake', 'biscuit', 'cookie', 'fruit', 'watermelon'
-        ]
-        if any(x in mid for x in snack_keywords) or any(x in name_lower for x in snack_keywords):
-             # Special case: Goulash can be sweet or savory
-             if 'goulash' in mid:
-                 if 'sweet' in mid or 'sugar' in mid or 'honey' in mid:
-                     cats.append('Snack')
-             elif 'feteer' in mid:
-                 if 'honey' in mid or 'sugar' in mid or 'sweet' in mid:
-                     cats.append('Snack')
-                 elif 'cheese' in mid:
-                     cats.append('Breakfast')
-                     cats.append('Dinner')
-             else:
-                 cats.append('Snack')
+        # 1. Snack Logic
+        snack_keywords = ['basbousa', 'zalabya', 'om_ali', 'pudding', 'halawa', 'honey', 'sugar', 'sweet', 'konafa', 'kunafa', 'chocolate', 'cake', 'biscuit', 'cookie', 'fruit']
+        if any(x in mid for x in snack_keywords):
+             cats.append('Snack')
 
-        # 2. Appetizer Logic (Sides)
-        appetizer_keywords = [
-            'salad', 'tursi', 'turshi', 'pickle', 'mekhallel', 'baba', 'tahina', 'tehina',
-            'tomatoes', 'cucumber', 'soup', 'baladi_salad', 'coleslaw', 'dip', 'chips',
-            'fries', 'sambousek', 'kobeba'
-        ]
-        # Exclude heavy main dishes that might contain these words
+        # 2. Appetizer Logic
+        appetizer_keywords = ['salad', 'tursi', 'pickle', 'baba', 'tahina', 'soup', 'coleslaw', 'dip', 'chips', 'fries', 'sambousek']
         if any(x in mid for x in appetizer_keywords) and 'Snack' not in cats:
-            if 'kaware' not in mid and 'meal' not in mid and 'plate' not in mid:
-                cats.append('Appetizer')
+            cats.append('Appetizer')
 
         # 3. Breakfast Logic
-        breakfast_keywords = [
-            'foul', 'tameya', 'beid', 'egg', 'omelette', 'shakshuka', 'cheese', 
-            'falafel', 'breakfast', 'fatar', 'toast', 'sandwich', 'sand', 'fino'
-        ]
+        breakfast_keywords = ['foul', 'tameya', 'beid', 'egg', 'omelette', 'shakshuka', 'cheese', 'falafel', 'breakfast', 'toast', 'sandwich']
         if any(x in mid for x in breakfast_keywords):
             if 'Snack' not in cats:
                 cats.append('Breakfast')
-            
-            # Most breakfast items are also good for Dinner
-            if 'Dinner' not in cats and 'Snack' not in cats:
-                 cats.append('Dinner')
 
-        # 4. Lunch Logic (Main Meals)
-        lunch_keywords = [
-            'koshary', 'hawawshi', 'pasta', 'rice', 'fattah', 'molokhia', 'bamya',
-            'zucchini', 'potato', 'stew', 'chicken', 'meat', 'beef', 'kofta', 
-            'liver', 'sausage', 'fish', 'seafood', 'shrimp', 'mahshi', 'okra',
-            'torly', 'peas', 'spinach', 'colocasia', 'goulash_meat'
-        ]
-        
-        # If it's explicitly a lunch item OR it has no category yet (and isn't a snack/appetizer)
-        if any(x in mid for x in lunch_keywords) or (not cats and 'Snack' not in cats and 'Appetizer' not in cats):
-             if 'goulash' in mid and 'sweet' in mid:
-                 pass # Already handled as snack
-             else:
-                 cats.append('Lunch')
-
-        # 5. Dinner Logic extensions
-        # Light main meals can be dinner
-        if 'Lunch' in cats:
-            if any(x in mid for x in ['koshary', 'hawawshi', 'soup', 'sandwich', 'sand', 'kofta', 'liver', 'sausage']):
-                cats.append('Dinner')
-
-        # Fallback
+        # 4. Lunch/Dinner Logic (Default for others)
         if not cats:
             cats.append('Lunch')
-
+            cats.append('Dinner')
+            
         return list(set(cats))
 
-    # Filter and Rank Egyptian Meals
-    filtered_traditional = []
-    
-    # Exclude standalone bread items
-    bread_blacklist = ['aish_baladi', 'bread', 'peta_bread', 'fino_loaves', 'shamy_bread']
-    
     for em in egyptian_meals:
-        # 1. Bread Filter
-        if any(b in em.meal_id.lower() for b in bread_blacklist):
-             # Ensure it's not a meal containing bread like 'hawawshi' (which has bread but isn't CALLED bread usually in ID)
-             if 'sandwich' not in em.meal_id.lower():
-                 continue
-
         nutrition = em.calculate_nutrition()
-        raw_protein = nutrition.get('protein', 0)
+        price = nutrition.get('price', 0)
+        if price <= 0: continue
         
-        tag = "Egyptian"
-        priority = 0 # Higher is better
-        
-        if raw_protein > 20:
-            tag = "Pro-Choice" # Renamed High Protein for flair
-            priority += 5
-        elif raw_protein > 10:
-            tag = "Healthy"
-            priority += 2
-            
-        # Prioritize Main Meals over Sides
+        eff = nutrition.get('calories', 0) / price
         cats = categorize_egyptian(em.name_en, em.meal_id)
-        if 'Lunch' in cats or 'Dinner' in cats:
-            priority += 3
-        if 'Appetizer' in cats:
-            priority += 1 # Boost visibility as user requested
-            
-        filtered_traditional.append({
+        
+        feed_items.append({
             "id": em.id,
             "name": em.name_en,
             "name_ar": em.name_ar,
             "calories": nutrition.get('calories'),
-            "price": nutrition.get('price'),
+            "protein": nutrition.get('protein'),
+            "price": round(price, 2),
             "image": em.image_url,
             "source": "Traditional",
-            "tag": tag,
+            "tag": "Egyptian",
             "type": "egyptian",
             "categories": cats,
-            "_priority": priority, # Internal sorting key
-            "_efficiency": nutrition.get('calories', 1) / (nutrition.get('price', 1) or 1)
+            "_efficiency": eff
         })
 
-    # Sort Traditional List by Priority then Efficiency
-    filtered_traditional.sort(key=lambda x: (x['_priority'], x['_efficiency']), reverse=True)
+    # Sort ALL by efficiency (Value for Money)
+    feed_items.sort(key=lambda x: x['_efficiency'], reverse=True)
     
-    # Clean up internal keys
-    for item in filtered_traditional:
-        del item['_priority']
-        del item['_efficiency']
-
-    # Combine: Market items (Efficiency) + Traditional (Quality)
-    # Interleave or just concat? Use a 50/50 mix for variety
-    final_feed = []
-    market_queue = list(top_efficient)
-    trad_queue = list(filtered_traditional)
-    
-    while len(final_feed) < 20 and (market_queue or trad_queue):
-        if market_queue:
-            final_feed.append(market_queue.pop(0))
-        if trad_queue:
-            final_feed.append(trad_queue.pop(0))
-    
-    return Response(final_feed)
+    # Return formatted list (Frontend filters by category)
+    return Response(feed_items)
 
 
 @api_view(['GET'])
