@@ -1284,78 +1284,81 @@ def pick_best_improving_item(pool, calorie_gap, budget, used_ids, strategy, rng)
     return rng.choice(top)[1]
 
 
-def generate_normal_day_plan(pools, target_calories, budget, strategy, user):
+    return plan, total_calories, total_protein, total_cost
+
+
+def generate_user_plan_fixed_meals(pools, user_target_calories, budget, num_meals, user):
     """
-    New optimizer based on "normal human behavior", Smart Eating Day patterns,
-    and Controlled Stochasticity.
+    Randomized Combinatorial Diet Generator (Monte Carlo)
     """
     rng = get_shuffle_rng(user)
+    all_meals = []
     
-    used_ids = set()
-    remaining_budget = float(budget)
-    calorie_gap = target_calories
+    # helper to check if meal is a Side Dish or specialized
+    def get_priority(m):
+        if m.category == 'breakfast': return 1
+        if m.category == 'lunch': return 2
+        if m.category == 'dinner': return 3
+        if m.category == 'part': return 5 # Ingredients/Sides
+        return 4 # Snacks
 
-    plan = {}
-    total_calories = 0
-    total_cost = 0.0
-    total_protein = 0.0
+    # flatten all pools into a single list
+    # We want to encourage variety, so we mix them all but respect logic later if needed
+    for pool_name, items in pools.items():
+        all_meals.extend(items)
+    
+    best_plan = None
+    closest_gap = float('inf')
+    best_stats = (0, 0.0, 0.0) # cals, cost, prot
 
-    # Shuffle optional slots sequence
-    structured_day = get_day_structure(rng)
+    # try multiple random combinations to find the best approximation
+    attempts = 1000  # Increased for better convergence
+    
+    for _ in range(attempts):
+        rng.shuffle(all_meals)
+        candidate = []
+        current_cals = 0
+        current_cost = 0.0
+        current_prot = 0.0
+        
+        # Optimization: Early Pruning
+        # If we pick a meal that consumes 80% of budget but we need 3 meals, likely bad path
+        
+        for meal in all_meals:
+            if len(candidate) >= num_meals:
+                break
+                
+            # Budget Check
+            if current_cost + float(meal.price) <= budget:
+                # preventing duplicates in same plan
+                if any(m.id == meal.id for m in candidate):
+                    continue
+                    
+                candidate.append(meal)
+                current_cals += meal.calories
+                current_cost += float(meal.price)
+                current_prot += float(meal.protein)
 
-    for block in structured_day:
-        slot = block["slot"]
-        plan[slot] = []
+        # skip if we didn't reach the required number of meals
+        if len(candidate) != num_meals:
+            continue
 
-        # Map slot to pool key
-        if "_snack" in slot:
-            pool_key = "snack"
-        else:
-            pool_key = slot
-            
-        pool = pools.get(pool_key, pools.get("lunch", []))
+        gap = abs(user_target_calories - current_cals)
+        
+        if gap < closest_gap:
+            closest_gap = gap
+            best_plan = candidate
+            best_stats = (current_cals, current_cost, current_prot)
+        elif gap == closest_gap:
+            # add randomness for diversity on equal score
+            if rng.random() < 0.5:
+                best_plan = candidate
+                best_stats = (current_cals, current_cost, current_prot)
 
-        # Mandatory meals: try to hit soft target
-        if block.get("mandatory"):
-            slot_target = int(target_calories * block["target_pct"])
+        if closest_gap == 0:  # exact match
+            break
 
-            for _ in range(MAX_ITEMS_PER_MEAL):
-                if slot_target <= 50:
-                    break
-
-                item = pick_best_improving_item(
-                    pool, slot_target, remaining_budget, used_ids, strategy, rng
-                )
-                if not item:
-                    break
-
-                plan[slot].append(item)
-                used_ids.add(item.id)
-
-                slot_target -= item.calories
-                calorie_gap -= item.calories
-                total_calories += item.calories
-                total_cost += float(item.price)
-                total_protein += float(item.protein)
-                remaining_budget -= float(item.price)
-
-        # Optional snacks: ONLY if they help global daily gap
-        else:
-            # For snacks, we look at the OVERALL daily calorie gap improvement
-            item = pick_best_improving_item(
-                pool, calorie_gap, remaining_budget, used_ids, strategy, rng
-            )
-            if item:
-                plan[slot].append(item)
-                used_ids.add(item.id)
-
-                calorie_gap -= item.calories
-                total_calories += item.calories
-                total_cost += float(item.price)
-                total_protein += float(item.protein)
-                remaining_budget -= float(item.price)
-
-    return plan, total_calories, total_protein, total_cost
+    return best_plan, best_stats[0], best_stats[2], best_stats[1]
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -1383,56 +1386,65 @@ def generate_plan(request):
         profile.last_plan_variant = strategy_index
         profile.save()
 
-        # Call New Optimizer (Smart Eating Day + Stochastic)
-        plan_groups, total_calories, total_protein, total_cost = generate_normal_day_plan(
-            pools, target_calories, daily_budget, strategy, request.user
+        profile.save()
+
+        # Call New Optimizer (Randomized Combination)
+        best_items, total_calories, total_protein, total_cost = generate_user_plan_fixed_meals(
+            pools, target_calories, daily_budget, meals_count, request.user
         )
         
-        if not plan_groups:
-            return Response({"error": "Unable to generate plan with current budget/calories."}, status=400)
+        if not best_items:
+            # Fallback: Just return closest budget fit if strict calories fail
+            return Response({"error": "Unable to find a valid meal combination within budget."}, status=400)
+
+        # Post-Process: Sort meals logically
+        # Order: Breakfast -> Lunch -> Dinner -> Snacks -> Sides
+        def sort_key(m):
+            cat = m.category.lower()
+            if 'breakfast' in cat: return 1
+            if 'lunch' in cat: return 2
+            if 'dinner' in cat: return 3
+            if 'snack' in cat: return 4
+            return 5
+            
+        best_items.sort(key=sort_key)
 
         # Format output for frontend
         response_items = []
         
-        labels_map = {
-            'breakfast': 'Breakfast', 
-            'lunch': 'Lunch', 
-            'dinner': 'Dinner',
-            'morning_snack': 'Morning Snack',
-            'afternoon_snack': 'Afternoon Snack',
-            'late_snack': 'Late Snack'
-        }
-
-        # Maintain order of DAY_STRUCTURE for UI consistency
-        for block in DAY_STRUCTURE:
-            slot_name = block["slot"]
-            items = plan_groups.get(slot_name, [])
+        for i, item in enumerate(best_items):
+            # Dynamic Labeling
+            if i == 0: label = "Meal 1"
+            elif i == 1: label = "Meal 2"
+            else: label = f"Meal {i+1}"
             
-            # Label Handling
-            base_label = labels_map.get(slot_name, slot_name.replace("_", " ").title())
+            # Apply smarter labels if possible
+            if "breakfast" in item.category: label += " (Breakfast)"
+            elif "lunch" in item.category: label += " (Lunch)"
+            elif "dinner" in item.category: label += " (Dinner)"
+            elif "snack" in item.category: label += " (Snack)"
             
-            for i, item in enumerate(items):
-                response_items.append({
-                    "meal_label": base_label if i == 0 else "Sides & Extras",
-                    "name": item.name,
-                    "name_ar": item.name_ar,
-                    "calories": item.calories,
-                    "protein": int(item.protein),
-                    "price": float(item.price),
-                    "source": item.source,
-                    "image": item.image,
-                    "id": item.id,
-                    "type": "egyptian" if "egy_" in str(item.id) else "global"
-                })
+            response_items.append({
+                "meal_label": label,
+                "name": item.name,
+                "name_ar": item.name_ar,
+                "calories": item.calories,
+                "protein": int(item.protein),
+                "price": float(item.price),
+                "source": item.source,
+                "image": item.image,
+                "id": item.id,
+                "type": "egyptian" if "egy_" in str(item.id) else "global"
+            })
 
         return Response({
             "plan": response_items,
             "total_calories": total_calories,
             "total_protein": int(total_protein),
             "total_cost": round(float(total_cost), 2),
-            "plan_variant": strategy,
+            "plan_variant": "Smart Shuffle",
             "warning": "" if abs(total_calories - target_calories) < 200 else "Adjusted to fit targets",
-            "meals_count": meals_count # Return for compatibility, though we use DAY_STRUCTURE
+            "meals_count": meals_count
         })
 
     except Exception as e:
