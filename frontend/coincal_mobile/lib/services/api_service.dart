@@ -183,14 +183,28 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> updateWater(String action) async {
+  static Future<Map<String, dynamic>> updateWater(
+    String action, {
+    DateTime? date,
+  }) async {
     try {
+      final body = {'action': action};
+      if (date != null) {
+        body['date'] = date.toIso8601String().split('T')[0];
+      }
+
       final response = await http.post(
         Uri.parse('$baseUrl/water/'),
         headers: _headers,
-        body: json.encode({'action': action}),
+        body: json.encode(body),
       );
       if (response.statusCode == 200) {
+        // Invalidate dashboard cache since stats for that date have changed
+        final dateKey = date != null
+            ? date.toIso8601String().split('T')[0]
+            : DateTime.now().toIso8601String().split('T')[0];
+        _cache.remove('dashboard_$dateKey');
+
         return json.decode(response.body);
       } else {
         throw Exception('Water update failed: ${response.statusCode}');
