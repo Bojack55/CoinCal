@@ -1136,13 +1136,17 @@ def generate_plan(request):
         def add_to_pool(item_dict, category):
             cat = category.lower()
             if 'breakfast' in cat: pool_breakfast.append(item_dict)
-            elif 'lunch' in cat: pool_lunch.append(item_dict)
-            elif 'dinner' in cat: pool_dinner.append(item_dict)
-            elif 'snack' in cat: 
+            
+            if 'lunch' in cat: 
+                pool_lunch.append(item_dict)
+                pool_dinner.append(item_dict) # Egyptian lunch/dinner are interchangeable
+            elif 'dinner' in cat: 
+                pool_dinner.append(item_dict)
+                pool_lunch.append(item_dict)
+            
+            if 'snack' in cat or 'salad' in cat: 
                  pool_snack.append(item_dict)
-                 pool_breakfast.append(item_dict)
-            else:
-                 pool_lunch.append(item_dict)
+                 # We don't necessarily want salads/snacks in pool_breakfast automatically unless they are meant for it
 
         # A. Global items
         multiplier = profile.get_location_multiplier()
