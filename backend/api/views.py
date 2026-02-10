@@ -1145,22 +1145,26 @@ def generate_plan(request):
                  pool_lunch.append(item_dict)
 
         # A. Global items
-        global_items = MarketPrice.objects.all().select_related('meal', 'vendor')
-        for item in global_items:
-            if float(item.price_egp) > daily_budget: continue
+        multiplier = profile.get_location_multiplier()
+        global_items = BaseMeal.objects.all()
+        for meal in global_items:
+            # Dynamic price based on location
+            price = float(meal.base_price) * float(multiplier)
+            
+            if price > daily_budget: continue
         
             data = {
-                'id': item.meal.id,
-                'name': item.meal.name,
-                'name_ar': item.meal.name_ar,  # Include Arabic name
-                'source': item.vendor.name,
-                'calories': item.meal.calories,
-                'protein': float(item.meal.protein_g),
-                'price': float(item.price_egp),
+                'id': meal.id,
+                'name': meal.name,
+                'name_ar': meal.name_ar,
+                'source': 'Market',
+                'calories': meal.calories,
+                'protein': float(meal.protein_g),
+                'price': round(price, 2),
                 'type': 'global',
-                'image': item.meal.image_url
+                'image': meal.image_url
             }
-            add_to_pool(data, item.meal.meal_type)
+            add_to_pool(data, meal.meal_type)
 
         # B. Egyptian items
         egyptian_items = EgyptianMeal.objects.all().prefetch_related('recipe_items__ingredient')
