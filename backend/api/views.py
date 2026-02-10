@@ -466,6 +466,7 @@ def create_custom_meal_from_ingredients(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_dashboard(request):
+    print(f"DEBUG: Dashboard requested by {request.user} for date {request.query_params.get('date', 'today')}")
     try:
         date_str = request.query_params.get('date')
         if date_str:
