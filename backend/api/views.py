@@ -1009,69 +1009,257 @@ def log_recipe(request):
     
     return Response({"message": "Recipe plate logged successfully!"}, status=status.HTTP_201_CREATED)
 
+
+# =========================
+# CONFIGURATION
+# =========================
+
+MIN_CALORIES = 500
+MAX_CALORIES = 5000
+MIN_BUDGET = 1.0
+
+CAL_MATCH_WEIGHT = 0.7
+EFFICIENCY_WEIGHT = 0.3
+
+MAX_ITEMS_PER_MEAL = 6
+OPTIMIZATION_TRIALS = 15
+
+STRATEGIES = [
+    "Balanced",
+    "High Protein",
+    "Budget Saver",
+    "High Energy",
+    "Variety"
+]
+
+@dataclass(frozen=True)
+class MealCandidate:
+    id: str
+    name: str
+    name_ar: str
+    calories: int
+    protein: float
+    price: float
+    source: str
+    image: str
+    category: str  # breakfast | lunch | dinner | snack | side
+
+
+# =========================
+# HELPERS
+# =========================
+
+def resolve_user_targets(profile, request):
+    from .utils.nutrition import calculate_tdee
+    
+    weight = float(profile.current_weight or profile.weight or 70)
+    height = float(profile.height or 170)
+    age = int(profile.age or 25)
+    gender = profile.gender or "M"
+    activity = profile.activity_level or "Moderate"
+
+    # Use existing TDEE logic
+    bmr = (10 * weight) + (6.25 * height) - (5 * age) + (5 if gender == "M" else -161)
+    tdee = int(calculate_tdee(Decimal(str(bmr)), activity))
+
+    target_calories = request.data.get("target_calories")
+    if not target_calories:
+        target_calories = profile.calorie_goal or tdee
+    target_calories = int(target_calories)
+    target_calories = max(MIN_CALORIES, min(MAX_CALORIES, target_calories))
+
+    budget = request.data.get("daily_budget")
+    if not budget:
+        budget = float(profile.daily_budget_limit or 50)
+    budget = float(budget) if budget else 50.0
+
+    return target_calories, max(budget, MIN_BUDGET)
+
+def build_meal_pools(user, daily_budget, include_custom=False):
+    profile = user.profile
+    multiplier = float(profile.get_location_multiplier())
+    
+    # Handle string boolean from request
+    if isinstance(include_custom, str):
+        include_custom = include_custom.lower() == 'true'
+
+    pools = {
+        "breakfast": [],
+        "lunch": [],
+        "dinner": [],
+        "snack": [],
+        "side": []
+    }
+
+    # Helper to identify sides
+    def get_category_and_is_side(name, cals):
+        name_l = name.lower() if name else ""
+        is_side = False
+        if any(x in name_l for x in ['rice', 'bread', 'salad', 'baladi', 'عيش', 'أرز', 'سلطة', 'خبز', 'vegetables', 'fino', 'toast', 'shamy', 'dip', 'tahina', 'baba', 'soup', 'pickle', 'dessert', 'sweet']):
+            # Exclude combos
+            if not any(x in name_l for x in ['with', 'and', 'كشري', 'koshari', 'koshary', 'sandwich', 'hawawshi', 'burger', 'pizza']):
+                is_side = True
+        if cals < 180 and not is_side:
+            is_side = True
+        return is_side
+
+    # 1. Base Meals
+    for m in BaseMeal.objects.all():
+        price = float(m.base_price or 0) * multiplier
+        if price > daily_budget: continue
+        
+        c = "side" if get_category_and_is_side(m.name, m.calories) else (m.meal_type or "Lunch").lower()
+        cand = MealCandidate(
+            id=f"base_{m.id}", name=m.name or "Unnamed Meal", name_ar=m.name_ar or m.name or "وجبة غير مسماة",
+            calories=m.calories or 0, protein=float(m.protein_g or 0), price=price,
+            source="Market", image=m.image_url or "", category=c
+        )
+        
+        target_pool = c if c in pools else "lunch"
+        pools[target_pool].append(cand)
+        if c == "lunch": pools["dinner"].append(cand)
+        elif c == "dinner": pools["lunch"].append(cand)
+
+    # 2. Egyptian Meals
+    for em in EgyptianMeal.objects.all().prefetch_related('recipe_items__ingredient'):
+        try:
+            calc = em.calculate_nutrition()
+            price = float(calc.get('price', 0)) * multiplier
+            if price > daily_budget: continue
+            
+            c = "side" if get_category_and_is_side(em.name_en, float(calc.get('calories', 0))) else "lunch"
+            mid = (em.meal_id or "").lower()
+            if not c == "side":
+                if any(x in mid for x in ['foul', 'tameya', 'beid', 'shakshuka', 'cheese', 'falafel']): c = "breakfast"
+                elif any(x in mid for x in ['basbousa', 'zalabya', 'om_ali', 'pudding', 'halawa', 'honey', 'sugar', 'sweet']): c = "snack"
+
+            cand = MealCandidate(
+                id=f"egy_{em.id}", name=em.name_en or "Egyptian Meal", name_ar=em.name_ar or em.name_en or "وجبة مصرية",
+                calories=int(float(calc.get('calories', 0))), protein=float(calc.get('protein', 0)), price=price,
+                source="Traditional", image=em.image_url or "", category=c
+            )
+            
+            target_pool = c if c in pools else "lunch"
+            pools[target_pool].append(cand)
+            if c == "lunch": pools["dinner"].append(cand)
+            elif c == "dinner": pools["lunch"].append(cand)
+        except: continue
+
+    # 3. Custom Meals & Recipes
+    if include_custom:
+        for cm in UserCustomMeal.objects.filter(user=user):
+            price = float(cm.base_price or 0) * multiplier
+            cand = MealCandidate(
+                id=f"cm_{cm.id}", name=cm.name or "Custom Meal", name_ar=cm.name_ar or cm.name or "وجبة مخصصة",
+                calories=cm.calories or 0, protein=float(cm.protein_g or 0), price=price,
+                source="Custom", image=cm.image_url or "", category="lunch"
+            )
+            if cand.calories < 400: pools["breakfast"].append(cand)
+            pools["lunch"].append(cand)
+            pools["dinner"].append(cand)
+
+        for r in Recipe.objects.filter(user=profile).prefetch_related('items__ingredient'):
+            try:
+                tc, tp, tcost = 0.0, 0.0, 0.0
+                for ri in r.items.all():
+                    ing = ri.ingredient
+                    scale = float(ri.amount or 0) / 100.0 if ing.unit in ['GRAM', 'ML'] else float(ri.amount or 0)
+                    tc += float(ing.calories_per_100g or 0) * scale
+                    tp += float(ing.protein_per_100g or 0) * scale
+                    tcost += (float(ri.amount or 0) / 100.0 if ing.unit in ['GRAM', 'ML'] else float(ri.amount or 0)) * float(ing.base_price or 0)
+                
+                if r.servings > 0:
+                    s_price = (tcost / r.servings) * multiplier
+                    cand = MealCandidate(
+                        id=f"recipe_{r.id}", name=r.name or "Recipe", name_ar=r.name_ar or r.name or "وصفة",
+                        calories=int(tc / r.servings), protein=tp / r.servings, price=s_price,
+                        source="Recipe Studio", image="", category="lunch"
+                    )
+                    if cand.calories < 400: pools["breakfast"].append(cand)
+                    pools["lunch"].append(cand)
+                    pools["dinner"].append(cand)
+            except: continue
+
+    # Ensure no empty pools
+    if not pools["breakfast"]: pools["breakfast"] = pools["lunch"]
+    if not pools["lunch"]: pools["lunch"] = pools["breakfast"]
+    if not pools["dinner"]: pools["dinner"] = pools["lunch"]
+    if not pools["snack"]: pools["snack"] = pools["side"]
+
+    return pools
+
+def strategy_bonus(meal, strategy):
+    if strategy == "High Protein":
+        return meal.protein * 0.5
+    if strategy == "Budget Saver":
+        return -meal.price
+    if strategy == "High Energy":
+        return (meal.calories / 100) * 0.2
+    if strategy == "Variety":
+        return random.uniform(-2.0, 2.0)
+    return 0.0
+
+def pick_best_candidate(pool, calorie_gap, budget, used_ids, strategy):
+    candidates = [m for m in pool if m.price <= budget and m.id not in used_ids]
+    if not candidates:
+        if calorie_gap > 200:
+            affordable = [m for m in pool if m.price <= budget]
+            return min(affordable, key=lambda x: x.price) if affordable else None
+        return None
+
+    def score(m):
+        cal_diff = abs(calorie_gap - m.calories)
+        cal_score = max(0, 1 - cal_diff / max(calorie_gap, 100))
+        efficiency = m.calories / max(m.price, 1)
+        base = (cal_score * CAL_MATCH_WEIGHT) + (min(efficiency / 50, 1) * EFFICIENCY_WEIGHT)
+        return base + strategy_bonus(m, strategy)
+
+    return max(candidates, key=score)
+
+def optimize_plan(slots, pools, target_calories, budget, strategy):
+    best_plan = None
+    best_error = float("inf")
+
+    for _ in range(OPTIMIZATION_TRIALS):
+        used_ids, remaining_budget, total_calories, total_protein = set(), budget, 0, 0.0
+        plan = {s[0]: [] for s in slots}
+
+        trial_slots = list(slots)
+        random.shuffle(trial_slots)
+
+        for slot_name, pct in trial_slots:
+            slot_target = int(target_calories * pct)
+            main_pool = pools.get(slot_name, pools["lunch"]) or pools["lunch"]
+            
+            for _ in range(MAX_ITEMS_PER_MEAL):
+                if slot_target < 40: break
+                
+                # Allow sides and snacks in addition to main pool if already have a main
+                current_pool = main_pool if not plan[slot_name] else (main_pool + pools["side"] + pools["snack"])
+                
+                item = pick_best_candidate(current_pool, slot_target, remaining_budget, used_ids, strategy)
+                if not item: break
+
+                plan[slot_name].append(item)
+                used_ids.add(item.id)
+                slot_target -= item.calories
+                total_calories += item.calories
+                total_protein += item.protein
+                remaining_budget -= item.price
+
+        error = abs(total_calories - target_calories)
+        if error < best_error:
+            best_error = error
+            best_plan = (plan, total_calories, total_protein, budget - remaining_budget)
+        if error < 50: break
+
+    return best_plan
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_plan(request):
-    """
-    Generate optimized 3-meal diet plan based on budget and calorie goals.
-    
-    Uses genetic algorithm-style optimization to select breakfast, lunch, and dinner
-    that maximize budget usage, meet calorie targets, and maximize protein content.
-    
-    Args:
-        request (HttpRequest): POST request with planning parameters
-            Required fields:
-                - budget (float): Daily budget in EGP
-                - calories (int): Target daily calories
-                
-    Returns:
-        Response: JSON with 3-meal plan
-            {
-                "breakfast": {meal data},
-                "lunch": {meal data},
-                "dinner": {meal data},
-                "total_price": float,
-                "total_calories": int,
-                "total_protein": float
-            }
-            HTTP 200: Plan generated successfully
-            HTTP 400: Insufficient meals in database
-    
-    Optimization Criteria:
-        1. Total Price <= Daily Budget (hard constraint)
-        2. Maximize budget usage
-        3. Minimize calorie difference from target
-        4. Maximize protein content
-        
-    Example:
-        POST /api/generate-plan/
-        {"budget": 100, "calories": 2000}
-    """
     try:
         profile = request.user.profile
-
-        # --- v9: Dynamic User Data Fetching ---
-        # 1. Fetch User Parameters (Prioritize DB Profile)
-        # If not in DB, check request params, else calculate defaults.
-    
-        # Weight & Goals
-        try:
-            current_weight = float(profile.current_weight) if profile.current_weight else 70.0
-            target_weight = float(profile.goal_weight) if profile.goal_weight else current_weight
-            height = float(profile.height) if profile.height else 170.0
-            age = profile.age if profile.age else 25
-            gender = profile.gender if profile.gender else 'M'
-            activity = profile.activity_level if profile.activity_level else 'Moderate'
-        except:
-            current_weight = 70.0
-            target_weight = 70.0
-            height = 170.0
-            age = 25
-            gender = 'M'
-            activity = 'Moderate'
-
-        # Target Calories
-        # Check if user has a custom target set in profile (assuming new field or using helper)
         target_calories, daily_budget = resolve_user_targets(profile, request)
 
         meals_count = int(request.data.get("meals_count", 3))
@@ -1094,346 +1282,54 @@ def generate_plan(request):
         strategy = STRATEGIES[strategy_index]
         profile.last_plan_variant = strategy_index
         profile.save()
-                diff = abs(calorie_target_gap - food['calories'])
-                norm_base = max(calorie_target_gap, 100) 
-                accuracy_score = max(0.0, 1.0 - (diff / norm_base))
-                
-                cpe = food['calories'] / food['price'] if food['price'] > 0 else 0
-                efficiency_score = min(1.0, cpe / 50.0)
-                
-                # Base Score
-                final_score = (accuracy_score * 0.7) + (efficiency_score * 0.3)
-                
-                # Add random variety if requested
-                if jitter:
-                    final_score += random.uniform(-0.15, 0.15)
-                
-                if final_score > best_score:
-                    best_score = final_score
-                    best_food = food
-            
-            return best_food
 
-        # 2. Distribute Targets
-        slot_targets = {slot['name']: {'target': int(target_calories * float(slot['pct'])), 'pool': slot['pool']} for slot in slots}
-        sorted_slots = sorted(slots, key=lambda x: x['pct'], reverse=True) # Fill big meals first
+        result = optimize_plan(slots, pools, target_calories, daily_budget, strategy)
+        if not result:
+            return Response({"error": "Unable to generate plan matching your budget and calories."}, status=400)
 
-        # v11: Trial-based Optimization (Monte Carlo)
-        optimal_plan = None
-        optimal_stats = None
-        min_abs_error = float('inf')
+        plan, total_calories, total_protein, total_cost = result
 
-        for trial in range(10): # Try 10 different plans and pick the best calorie match
-            current_total_price = 0.0
-            current_total_cals = 0
-            current_total_prot = 0.0
-            current_meal_groups = {slot['name']: [] for slot in slots}
-            current_remaining_budget = float(daily_budget)
-            
-            # 3. Main Loop: Fill Slots by Calorie Priority
-            # Shuffle slots slightly for variety in which meal gets "first pick"
-            trial_slots = list(sorted_slots)
-            random.shuffle(trial_slots)
-            
-            for slot in trial_slots:
-                s_name = slot['name']
-                s_target = int(target_calories * float(slot['pct']))
-                s_pool = slot['pool'] if slot['pool'] else all_candidates
-                
-                slot_cals = 0
-                
-                for _ in range(8): # Max 8 items per meal
-                    gap = s_target - slot_cals
-                    if gap < 30: break # Close enough
-                    
-                    # Random jitter for variety
-                    best_item = select_food_for_meal(
-                        s_pool, 
-                        gap, 
-                        current_remaining_budget, 
-                        current_meal_groups[s_name],
-                        jitter=True
-                    )
-                    
-                    if best_item:
-                        current_meal_groups[s_name].append(best_item)
-                        slot_cals += best_item['calories']
-                        current_total_cals += best_item['calories']
-                        current_total_price += best_item['price']
-                        current_total_prot += best_item['protein']
-                        current_remaining_budget -= best_item['price']
-                    else:
-                        break
+        response_items = []
+        logical_order = ["breakfast", "lunch", "dinner"] + [f"snack_{i+1}" for i in range(7)]
+        sorted_slots = sorted(plan.keys(), key=lambda x: logical_order.index(x) if x in logical_order else 99)
 
-            # Phase 2: Budget Pad (Fill gaps if any)
-            gap_to_fill = target_calories - current_total_cals
-            if gap_to_fill > 100 and current_remaining_budget > 2.0:
-                fill_pool = pool_sides + pool_snack
-                for _ in range(5):
-                    if gap_to_fill < 50 or current_remaining_budget < 1.0: break
-                    filler = select_food_for_meal(fill_pool, gap_to_fill, current_remaining_budget, [], jitter=True)
-                    if filler:
-                        # Add to random slot
-                        target_s = random.choice(list(current_meal_groups.keys()))
-                        current_meal_groups[target_s].append(filler)
-                        current_total_cals += filler['calories']
-                        current_total_price += filler['price']
-                        current_total_prot += filler['protein']
-                        current_remaining_budget -= filler['price']
-                        gap_to_fill = target_calories - current_total_cals
-
-            # Evaluate Trial
-            error = abs(current_total_cals - target_calories)
-            if error < min_abs_error:
-                min_abs_error = error
-                optimal_plan = current_meal_groups
-                optimal_stats = {
-                    'total_price': round(current_total_price, 2),
-                    'total_calories': int(current_total_cals),
-                    'total_protein': int(current_total_prot),
-                    'remaining_budget': current_remaining_budget
-                }
-                if error < 50: break # Exit early if we found a great match
-        
-        meal_groups = optimal_plan
-        total_price = optimal_stats['total_price']
-        total_cals = optimal_stats['total_calories']
-        total_prot = optimal_stats['total_protein']
-        remaining_global_budget = optimal_stats['remaining_budget']
-                    
-        # 4. Phase 2: Budget Utilization (Upgrades/Sides)
-        # Only if we are lacking calories OR have budget to improve quality
-        # User Priority 2: Use budget without exceeding.
-        
-        # Check Calorie Accuracy
-        cal_diff = total_cals - target_calories
-        
-        # A. If Undershoot > 200: Try to add Sides/Snacks to any slot
-        if cal_diff < -200 and remaining_global_budget > 5.0:
-            print(f"[DEBUG v10] Undershot by {cal_diff}. Attempting to fill with sides.")
-            for _ in range(5):
-                if total_cals >= target_calories - 50 or remaining_global_budget < 2.0:
-                    break
-                
-                # Pick a random slot to pad
-                target_slot = random.choice(list(meal_groups.keys()))
-                gap = target_calories - total_cals
-                
-                # Use side pool or snack pool
-                fill_pool = pool_sides + pool_snack
-                best_filler = select_food_for_meal(fill_pool, gap, remaining_global_budget, meal_groups[target_slot])
-                
-                if best_filler:
-                    meal_groups[target_slot].append(best_filler)
-                    total_cals += best_filler['calories']
-                    total_price += best_filler['price']
-                    total_prot += best_filler['protein']
-                    remaining_global_budget -= best_filler['price']
-        
-        # B. If Budget Remains: Upgrade for Quality (Protein) without breaking calories
-        # User said: "Upgrade meals... (better quality, not more calories)"
-        # This implies we want same calories, higher protein/price.
-        
-        if remaining_global_budget > 5.0 and abs(total_cals - target_calories) < 200:
-             print(f"[DEBUG v10] Budget remains ({remaining_global_budget}). optimizing quality.")
-             # Iterate existing meals and try to swap
-             for s_name, items in meal_groups.items():
-                 for i, item in enumerate(items):
-                     if remaining_global_budget <= 1.0: break
-                     
-                     # Find swap: Similar calories (±10%), Higher Score (Protein?), Fits Budget
-                     # Candidate pool: 
-                     s_pool = [x for x in (slot_targets.get(s_name, {}).get('pool') or all_candidates)]
-                     
-                     best_swap = None
-                     best_swap_gain = 0
-                     
-                     for cand in s_pool[:50]: # Check top 50 matches in pool logic
-                         # Cost check
-                         cost_diff = cand['price'] - item['price']
-                         if cost_diff > remaining_global_budget or cost_diff < 0: 
-                             continue # Only upgrades (we want to SPEND budget)
-                             
-                         # Calorie Stability Check
-                         cal_diff_swap = cand['calories'] - item['calories']
-                         # New total must be within tolerant range of target, OR bring us CLOSER to target
-                         new_total_cals = total_cals + cal_diff_swap
-                         new_global_diff = abs(new_total_cals - target_calories)
-                         current_global_diff = abs(total_cals - target_calories)
-                         
-                         # Allow swap if:
-                         # 1. It reduces global calorie error
-                         # 2. OR it keeps error within acceptable range (±100)
-                         valid_swap = False
-                         if new_global_diff < current_global_diff: valid_swap = True
-                         elif new_global_diff < 100: valid_swap = True
-                         
-                         if not valid_swap: continue
-                         
-                         # It's a valid candidate. Is it better?
-                         # Metric: Protein gain
-                         prot_gain = cand['protein'] - item['protein']
-                         if prot_gain > best_swap_gain:
-                             best_swap_gain = prot_gain
-                             best_swap = cand
-                             
-                     if best_swap:
-                         # Execute Swap
-                         cost_diff = best_swap['price'] - item['price']
-                         cal_diff_swap = best_swap['calories'] - item['calories']
-                         prot_diff = best_swap['protein'] - item['protein']
-                         
-                         meal_groups[s_name][i] = best_swap
-                         
-                         total_price += cost_diff
-                         total_cals += cal_diff_swap
-                         total_prot += prot_diff
-                         remaining_global_budget -= cost_diff
-
-        # 5. Validation and Reporting
-        calorie_difference = abs(total_cals - target_calories)
-        print(f"[PLAN] Generated: {total_cals} kcal ({calorie_difference} off), {total_price} EGP")
-        print(f"[PLAN] Budget usage: {(total_price/float(daily_budget))*100:.1f}%")
-        
-        plan_warning = ""
-        # 6. Error on Major Failure (as requested)
-        if calorie_difference > 300: # Slightly looser than 200 to be safe, but strict enough
-             plan_warning = f"Could not satisfy calorie target. Off by {calorie_difference} kcal. Check budget or settings."
-             # User requested returning error?
-             # "return error if calorie target is impossible"
-             # Let's add a warning flag or actually error?
-             # For API stability, maybe just a strong warning in the response, 
-             # unless strictly requested to 400.
-             # User code example showed returning error dict.
-             # Implementing soft error (Warning) to prevent UI crashes, but robust feedback.
-             
-        final_response = []
-
-        # PHASE 3: FINAL POLISH (Sides and Snacks)
-        # If we still have budget, add sides/snacks until we hit ~100% budget usage
-        if remaining_global_budget > 0 and pool_sides:
-            for _ in range(5): # Limit additional sides
-                if remaining_global_budget <= 0: break
-            
-                target_slot = random.choice(list(meal_groups.keys()))
-                side = random.choice(pool_sides)
-            
-                if any(m['name'] == side['name'] for m in meal_groups[target_slot]): continue
-            
-                if side['price'] <= remaining_global_budget:
-                    meal_groups[target_slot].append(side)
-                    remaining_global_budget -= side['price']
-                    total_price += side['price']
-                    total_cals += side['calories']
-                    total_prot += side['protein']
-
-        # Edge Case Notification: If we are still way off calories
-        plan_warning = ""
-        if total_cals < target_calories * 0.95:
-            plan_warning = "Budget may be too low for your calorie target. Recommending the most calorie-dense items possible."
-
-        best_plan = meal_groups
-        best_stats = {
-            'total_price': round(total_price, 1),
-            'total_calories': int(total_cals),
-            'total_protein': int(total_prot),
-            'warning': plan_warning
-        }
-        
-        # Fallback to simple plan if optimization failed
-        if not best_plan or total_cals == 0:
-             best_plan = {}
-             for slot in slots:
-                 if slot['pool']:
-                     best_plan[slot['name']] = [slot['pool'][0]]
-
-        # Format Output
-        final_response = []
-        
-        # Sort keys based on our defined order
-        # Dynamic sort order: Breakfast -> Snacks -> Lunch -> Snacks -> Dinner -> Snacks
-        # Simpler approach: Breakfast, Snack 1, Lunch, Snack 2, Dinner, Snack 3...
-        
-        def get_sort_index(key):
-            if 'breakfast' in key: return 0
-            if 'lunch' in key: return 20
-            if 'dinner' in key: return 40
-            if 'snack' in key:
-                # Extract number if present
-                parts = key.split('_')
-                if len(parts) > 1 and parts[1].isdigit():
-                     num = int(parts[1])
-                     # Interleave: 
-                     # Snack 1 -> 10 (Morning)
-                     # Snack 2 -> 30 (Afternoon)
-                     # Snack 3 -> 50 (Evening)
-                     # Snack 4+ -> 50+
-                     if num == 1: return 10
-                     if num == 2: return 30
-                     return 40 + num
-                return 50 # Generic snack
-            return 99
-        
-        sorted_s_names = sorted(best_plan.keys(), key=get_sort_index)
-        
-        labels_map = {
-            'breakfast': 'Breakfast', 'lunch': 'Lunch', 'dinner': 'Dinner', 
-            'snack_1': 'Morning Snack', 'snack_2': 'Afternoon Snack', 'snack_3': 'Evening Snack'
-        }
-        
-        for category in sorted_s_names:
-            items = best_plan[category]
+        for slot in sorted_slots:
+            items = plan[slot]
             for i, item in enumerate(items):
-                # Display Label Logic
-                # Dynamic Labeling for extra snacks
-                if category in labels_map:
-                    base_label = labels_map[category]
-                else:
-                    # Fallback for snack_4, etc.
-                    if 'snack' in category:
-                         base_label = category.replace('_', ' ').title()
-                    else:
-                         base_label = category.capitalize()
-            
-                label = base_label
-                # Relabel sides as Salads & Appetizers for Lunch/Dinner
-                if category in ['lunch', 'dinner'] and i > 0:
-                     label = 'Salads & Appetizers'
-            
-                final_response.append({
-                    "meal_label": label,
-                    "name": item['name'],
-                    "name_ar": item.get('name_ar'),
-                    "calories": item['calories'],
-                    "protein": item['protein'],
-                    "price": item['price'],
-                    "source": item['source'],
-                    "type": item['type'],
-                    "image": item.get('image', ''),
-                    "id": item.get('id')
+                label = slot.capitalize()
+                if "Snack" in label: label = "Snack"
+                response_items.append({
+                    "meal_label": label if i == 0 else "Extras",
+                    "name": item.name,
+                    "name_ar": item.name_ar,
+                    "calories": item.calories,
+                    "protein": int(item.protein),
+                    "price": round(item.price, 2),
+                    "source": item.source,
+                    "image": item.image,
+                    "id": item.id,
+                    "type": item.id.split('_')[0]
                 })
-        
-        print(f"[DEBUG v9] Loop done. Plan items: {len(final_response)}")
+
         return Response({
-            "plan": final_response,
-            "total_cost": best_stats['total_price'],
-            "total_calories": best_stats['total_calories'],
-            "total_protein": best_stats['total_protein'],
-            "warning": best_stats.get('warning', ''),
-            "plan_variant": strategy_name,
-            "note": "Tap 'Generate Plan' again for a different variation!",
-            "meals_count": int(meals_count)
+            "plan": response_items,
+            "total_calories": int(total_calories),
+            "total_protein": int(total_protein),
+            "total_cost": round(total_cost, 2),
+            "plan_variant": strategy,
+            "warning": "" if abs(total_calories - target_calories) < 250 else "Calorie target was difficult to match with current budget.",
+            "meals_count": meals_count,
+            "target_calories": target_calories,
+            "daily_budget": daily_budget
         })
 
     except Exception as e:
         import traceback
-        print(f"Diet Plan Generation Error: {str(e)}")
-        print("Full Traceback:")
-        traceback.print_exc() # This prints to the server log
         return Response({
-            "error": "Diet plan generation error",
-            "details": f"Exception: {str(e)}"
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            "error": "Diet plan generation failed",
+            "details": str(e),
+            "traceback": traceback.format_exc()
+        }, status=500)
     
     # Failsafe return (should never be reached if try/except works)
     return Response({"error": "Unknown system error (Fallthrough)"}, status=500)
