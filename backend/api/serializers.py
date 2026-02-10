@@ -165,7 +165,7 @@ class UserCustomMealSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserCustomMeal
         fields = [
-            'id', 'name', 'calories', 'protein', 'carbs', 'fats',
+            'id', 'name', 'name_ar', 'calories', 'protein', 'carbs', 'fats',
             'protein_g', 'carbs_g', 'fats_g', 
             'is_custom', 'price', 'category', 'is_private', 'created_at'
         ]
