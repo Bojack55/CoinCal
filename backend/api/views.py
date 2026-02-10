@@ -1535,6 +1535,7 @@ def generate_plan(request):
 
         # 2. Distribute Targets
         slot_targets = {slot['name']: {'target': int(target_calories * float(slot['pct'])), 'pool': slot['pool']} for slot in slots}
+        sorted_slots = sorted(slots, key=lambda x: x['pct'], reverse=True) # Fill big meals first
 
         # v11: Trial-based Optimization (Monte Carlo)
         optimal_plan = None
