@@ -33,6 +33,19 @@ class AbstractMeal(TimeStampedModel):
     fiber_g = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0.0'), help_text='Dietary fiber in grams')
     serving_weight = models.IntegerField(default=100, help_text='Serving size in grams')
     image_url = models.URLField(null=True, blank=True)
+    base_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.0'), help_text="Reference price in EGP")
+
+    def get_price_for_location(self, location_category):
+        """Calculate adjusted price based on location"""
+        multipliers = {
+            'metro': Decimal('1.0'),
+            'major_city': Decimal('0.95'),
+            'regional': Decimal('0.88'),
+            'provincial': Decimal('0.80'),
+            'rural': Decimal('0.70'),
+        }
+        multiplier = multipliers.get(location_category, Decimal('1.0'))
+        return self.base_price * multiplier
 
     class Meta:
         abstract = True
@@ -51,21 +64,6 @@ class BaseMeal(AbstractMeal):
     max_calories = models.IntegerField(null=True, blank=True)
     is_standard_portion = models.BooleanField(default=False)
     is_healthy = models.BooleanField(default=False)
-
-    # Price
-    base_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.0'), help_text="Cairo/Giza reference price in EGP")
-
-    def get_price_for_location(self, location_category):
-        """Calculate adjusted price based on location"""
-        multipliers = {
-            'metro': 1.0,
-            'major_city': 0.95,
-            'regional': 0.88,
-            'provincial': 0.80,
-            'rural': 0.70,
-        }
-        multiplier = multipliers.get(location_category, 1.0)
-        return self.base_price * Decimal(str(multiplier))
 
     def __str__(self):
         return self.name
@@ -227,48 +225,72 @@ class MealLog(TimeStampedModel):
     final_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.0'), editable=False)
 
     def save(self, *args, **kwargs):
-        # 1. Determine Base Calories
-        base_cals = 0
-        if self.meal:
-            base_cals = self.meal.calories
-        elif self.custom_meal:
-            base_cals = self.custom_meal.calories
-        elif self.egyptian_meal:
-            base_cals = self.egyptian_meal.calculate_nutrition()['calories']
-        
-        # 2. Apply Modifier
-        modifiers = {
-            'LIGHT': Decimal('0.85'),
-            'STANDARD': Decimal('1.0'),
-            'HEAVY': Decimal('1.3')
+        # 0. Location Multipliers for fallback logic
+        multipliers = {
+            'metro': Decimal('1.0'),
+            'major_city': Decimal('0.95'),
+            'regional': Decimal('0.88'),
+            'provincial': Decimal('0.80'),
+            'rural': Decimal('0.70'),
         }
-        mod = modifiers.get(self.prep_style, Decimal('1.0'))
-        # Ensure base_cals is Decimal and quantity is Decimal
-        self.final_calories = int(Decimal(base_cals) * mod * Decimal(str(self.quantity)))
+        multiplier = multipliers.get(self.user.location_category, Decimal('1.0'))
 
-        # 3. Determine Final Price
-        self.final_price = Decimal('0.0')
-        if self.meal:
-            # Look for local price first, then fallback to Cairo/Generic
-            prices = MarketPrice.objects.filter(meal=self.meal)
-            local_price = prices.filter(vendor__city=self.user.current_location).first()
-            if not local_price:
-                local_price = prices.filter(vendor__city='Cairo').first() or prices.first()
+        # 1. Determine Base Calories & Price
+        # If no meal is attached, we preserve any existing/manually set values
+        if self.meal or self.custom_meal or self.egyptian_meal:
+            base_cals = 0
+            base_price = Decimal('0.0')
             
-            if local_price:
-                self.final_price = local_price.price_egp * Decimal(str(self.quantity))
-        elif self.egyptian_meal:
-            # Egyptian meals calculate price dynamically from ingredients + markup
-            self.final_price = Decimal(self.egyptian_meal.get_price()) * Decimal(str(self.quantity))
+            if self.meal:
+                base_cals = self.meal.calories
+                # Price logic: MarketPrice -> BaseMeal Fallback
+                mp = MarketPrice.objects.filter(meal=self.meal)
+                local_mp = mp.filter(vendor__city=self.user.current_location).first()
+                if not local_mp:
+                    local_mp = mp.filter(vendor__city='Cairo').first() or mp.first()
+                
+                if local_mp:
+                    base_price = local_mp.price_egp
+                else:
+                    # Fallback to BaseMeal's reference price with location adjustment
+                    base_price = self.meal.base_price * multiplier
+            
+            elif self.egyptian_meal:
+                base_cals = self.egyptian_meal.calculate_nutrition()['calories']
+                # Localize the EgyptianMeal recipe price
+                base_price = Decimal(self.egyptian_meal.get_price()) * multiplier
+            
+            elif self.custom_meal:
+                base_cals = self.custom_meal.calories
+                # Custom meals now inherit base_price from AbstractMeal
+                base_price = self.custom_meal.base_price * multiplier
+
+            # 2. Apply Quantity and Prep Modifiers
+            prep_mods = {
+                'LIGHT': Decimal('0.85'),
+                'STANDARD': Decimal('1.0'),
+                'HEAVY': Decimal('1.3')
+            }
+            mod = prep_mods.get(self.prep_style, Decimal('1.0'))
+            qt = Decimal(str(self.quantity))
+            
+            self.final_calories = int(Decimal(base_cals) * mod * qt)
+            self.final_price = (base_price * qt).quantize(Decimal('0.01'))
+        
+        # If we reach here and final_calories/price were set manually (e.g. log_recipe),
+        # they are preserved because we only overwrite them if a meal source is present.
         
         # Save the log
         is_new = self.pk is None
         old_calories = 0
         old_price = Decimal('0')
         if not is_new:
-            old_instance = MealLog.objects.get(pk=self.pk)
-            old_calories = old_instance.final_calories
-            old_price = old_instance.final_price
+            try:
+                old_instance = MealLog.objects.get(pk=self.pk)
+                old_calories = old_instance.final_calories
+                old_price = old_instance.final_price
+            except MealLog.DoesNotExist:
+                pass
 
         super().save(*args, **kwargs)
 

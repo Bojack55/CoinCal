@@ -440,7 +440,7 @@ def create_custom_meal_from_ingredients(request):
     from .utils.translation import auto_translate_meal_name
     english_name, arabic_name = auto_translate_meal_name(name)
     
-    # Create the custom meal with bilingual names
+    # Create the custom meal with bilingual names and price
     custom_meal = UserCustomMeal.objects.create(
         user=request.user,
         name=english_name or name,  # Use translated English or fallback to original
@@ -449,6 +449,7 @@ def create_custom_meal_from_ingredients(request):
         protein_g=per_serving_protein,
         carbs_g=per_serving_carbs,
         fats_g=per_serving_fats,
+        base_price=per_serving_price,
         is_private=True
     )
     
