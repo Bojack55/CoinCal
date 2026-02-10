@@ -1243,10 +1243,7 @@ def score_candidate(meal, calorie_gap, budget, strategy, rng):
     if float(meal.price) > budget:
         return -1.0
 
-    before = abs(calorie_gap)
-    after = abs(calorie_gap - meal.calories)
-
-    improvement = float(before - after)
+    improvement = abs(calorie_gap) - abs(calorie_gap - meal.calories)
     
     # Threshold: If it makes the gap WORSE, we don't eat it
     if improvement <= 0:
