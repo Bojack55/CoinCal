@@ -116,6 +116,8 @@ class DailyPriceCreateSerializer(serializers.Serializer):
 # ============ Existing Serializers ============
 
 class IngredientSerializer(serializers.ModelSerializer):
+    price_per_unit = serializers.ReadOnlyField(source='base_price')
+
     class Meta:
         model = Ingredient
         fields = '__all__'
