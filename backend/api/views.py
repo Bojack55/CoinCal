@@ -469,7 +469,10 @@ def get_dashboard(request):
     try:
         date_str = request.query_params.get('date')
         if date_str:
-            query_date = date.fromisoformat(date_str)
+            try:
+                query_date = date.fromisoformat(date_str)
+            except:
+                query_date = date.today()
         else:
             query_date = date.today()
 
@@ -527,6 +530,8 @@ def get_dashboard(request):
         })
     except Exception as e:
         import traceback
+        with open('crash.log', 'w') as f:
+            f.write(traceback.format_exc())
         return Response({
             "error": "Dashboard failed to load",
             "details": str(e),

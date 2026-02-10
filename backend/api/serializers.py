@@ -351,8 +351,7 @@ class LocationAwareBaseMealSerializer(serializers.ModelSerializer):
 
     def get_price(self, obj):
         multiplier = self.context.get('location_multiplier', 1.0)
-        # obj.base_price is Decimal
-        original_price = float(obj.base_price)
+        original_price = float(obj.base_price or 0)
         return round(original_price * float(multiplier), 2)
 
     def get_restaurant_name(self, obj):
@@ -375,6 +374,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 class WeightLogSerializer(serializers.ModelSerializer):
+    weight = serializers.FloatField()
     class Meta:
         model = WeightLog
         fields = ['id', 'weight', 'date', 'created_at']
@@ -387,6 +387,9 @@ class MealLogSerializer(serializers.ModelSerializer):
 class MealLogDetailedSerializer(serializers.ModelSerializer):
     meal_name = serializers.SerializerMethodField()
     meal_name_ar = serializers.SerializerMethodField()
+    
+    final_calories = serializers.IntegerField()
+    final_price = serializers.FloatField()
     
     class Meta:
         model = MealLog
