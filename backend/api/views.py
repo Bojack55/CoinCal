@@ -1219,9 +1219,25 @@ def build_meal_pools(user, daily_budget, include_custom=False):
     return pools
 
 
-def score_candidate(meal, calorie_gap, budget, strategy):
+    return pools
+
+
+def get_shuffle_rng(user):
+    # changes every click but stable within one request
+    return random.Random()
+
+
+def get_day_structure(rng):
+    mandatory = [b for b in DAY_STRUCTURE if b.get("mandatory")]
+    optional = [b for b in DAY_STRUCTURE if not b.get("mandatory")]
+
+    rng.shuffle(optional)
+    return mandatory + optional
+
+
+def score_candidate(meal, calorie_gap, budget, strategy, rng):
     """
-    Smarter candidate scoring (delta-based) with Strategy Support.
+    Smarter candidate scoring (delta-based) with Strategy Support and Jitter.
     Returns -1 if item doesn't improve the calorie gap or exceeds budget.
     """
     if float(meal.price) > budget:
@@ -1233,8 +1249,6 @@ def score_candidate(meal, calorie_gap, budget, strategy):
     improvement = float(before - after)
     
     # Threshold: If it makes the gap WORSE, we don't eat it
-    # Exception: if we are very close (gap < 50), and it's a mandatory meal, we might allow it
-    # but strictly following user rule: "improvement <= 0 -> we don't eat it"
     if improvement <= 0:
         return -1.0
 
@@ -1243,32 +1257,43 @@ def score_candidate(meal, calorie_gap, budget, strategy):
     # Strategy Bonus
     bonus = strategy_bonus(meal, strategy)
     
-    return improvement + (efficiency * 0.05) + bonus
+    # Jitter: Bounded randomness (0.95 - 1.05)
+    jitter = rng.uniform(0.95, 1.05)
+    
+    return (improvement + (efficiency * 0.05) + bonus) * jitter
 
 
-def pick_best_improving_item(pool, calorie_gap, budget, used_ids, strategy):
+def pick_best_improving_item(pool, calorie_gap, budget, used_ids, strategy, rng):
     """
     Picks the best item that improves the calorie gap.
+    Uses Top-3 selection for variety.
     """
-    best = None
-    best_score = -1.0
+    scored = []
 
     for meal in pool:
         if meal.id in used_ids:
             continue
 
-        score = score_candidate(meal, calorie_gap, budget, strategy)
-        if score > best_score:
-            best = meal
-            best_score = score
+        score = score_candidate(meal, calorie_gap, budget, strategy, rng)
+        if score > 0:
+            scored.append((score, meal))
+            
+    if not scored:
+        return None
+        
+    # Pick among top 3 instead of absolute best
+    scored.sort(reverse=True, key=lambda x: x[0])
+    top = scored[:min(3, len(scored))]
+    return rng.choice(top)[1]
 
-    return best
 
-
-def generate_normal_day_plan(pools, target_calories, budget, strategy):
+def generate_normal_day_plan(pools, target_calories, budget, strategy, user):
     """
-    New optimizer based on "normal human behavior" and Smart Eating Day patterns.
+    New optimizer based on "normal human behavior", Smart Eating Day patterns,
+    and Controlled Stochasticity.
     """
+    rng = get_shuffle_rng(user)
+    
     used_ids = set()
     remaining_budget = float(budget)
     calorie_gap = target_calories
@@ -1278,7 +1303,10 @@ def generate_normal_day_plan(pools, target_calories, budget, strategy):
     total_cost = 0.0
     total_protein = 0.0
 
-    for block in DAY_STRUCTURE:
+    # Shuffle optional slots sequence
+    structured_day = get_day_structure(rng)
+
+    for block in structured_day:
         slot = block["slot"]
         plan[slot] = []
 
@@ -1299,7 +1327,7 @@ def generate_normal_day_plan(pools, target_calories, budget, strategy):
                     break
 
                 item = pick_best_improving_item(
-                    pool, slot_target, remaining_budget, used_ids, strategy
+                    pool, slot_target, remaining_budget, used_ids, strategy, rng
                 )
                 if not item:
                     break
@@ -1318,7 +1346,7 @@ def generate_normal_day_plan(pools, target_calories, budget, strategy):
         else:
             # For snacks, we look at the OVERALL daily calorie gap improvement
             item = pick_best_improving_item(
-                pool, calorie_gap, remaining_budget, used_ids, strategy
+                pool, calorie_gap, remaining_budget, used_ids, strategy, rng
             )
             if item:
                 plan[slot].append(item)
@@ -1358,9 +1386,9 @@ def generate_plan(request):
         profile.last_plan_variant = strategy_index
         profile.save()
 
-        # Call New Optimizer (Smart Eating Day)
+        # Call New Optimizer (Smart Eating Day + Stochastic)
         plan_groups, total_calories, total_protein, total_cost = generate_normal_day_plan(
-            pools, target_calories, daily_budget, strategy
+            pools, target_calories, daily_budget, strategy, request.user
         )
         
         if not plan_groups:
