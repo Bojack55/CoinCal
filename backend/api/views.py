@@ -466,7 +466,6 @@ def create_custom_meal_from_ingredients(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_dashboard(request):
-    print(f"DEBUG: Dashboard requested by {request.user} for date {request.query_params.get('date', 'today')}")
     try:
         date_str = request.query_params.get('date')
         if date_str:
@@ -1414,15 +1413,15 @@ def get_smart_feed(request):
             "id": meal.id,
             "name": meal.name,
             "name_ar": meal.name_ar,
-            "calories": meal.calories,
-            "protein": meal.protein_g,
-            "price": round(price, 2),
-            "image": "", # Add placeholder URL or logic if available
+            "calories": int(meal.calories or 0),
+            "protein": float(meal.protein_g or 0),
+            "price": float(round(price, 2)),
+            "image": "", 
             "source": "Market",
             "tag": "Best Value" if eff > 50 else "Standard",
             "type": "global",
             "categories": cats,
-            "_efficiency": eff
+            "_efficiency": float(eff)
         })
 
     # 2. Egyptian Meals (Traditional)
@@ -1470,17 +1469,17 @@ def get_smart_feed(request):
         
         feed_items.append({
             "id": em.id,
-            "name": em.name_en,
-            "name_ar": em.name_ar,
-            "calories": nutrition.get('calories'),
-            "protein": nutrition.get('protein'),
-            "price": round(localized_price, 2),
-            "image": em.image_url,
+            "name": em.name_en or "Egyptian Meal",
+            "name_ar": em.name_ar or em.name_en or "وجبة مصرية",
+            "calories": int(float(nutrition.get('calories', 0))),
+            "protein": float(nutrition.get('protein', 0)),
+            "price": float(round(localized_price, 2)),
+            "image": em.image_url or "",
             "source": "Traditional",
             "tag": "Egyptian",
             "type": "egyptian",
             "categories": cats,
-            "_efficiency": nutrition.get('calories', 0) / localized_price if localized_price > 0 else 0
+            "_efficiency": float(nutrition.get('calories', 0)) / float(localized_price) if localized_price > 0 else 0.0
         })
 
     # Sort ALL by efficiency (Value for Money)
