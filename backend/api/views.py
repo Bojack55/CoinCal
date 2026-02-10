@@ -37,6 +37,15 @@ MAX_ITEMS_PER_MEAL = 6
 OPTIMIZATION_TRIALS = 10
 STRATEGIES = ["Balanced", "High Protein", "Budget Saver", "High Energy", "Variety"]
 
+DAY_STRUCTURE = [
+    {"slot": "breakfast", "mandatory": True,  "target_pct": 0.25},
+    {"slot": "morning_snack", "mandatory": False},
+    {"slot": "lunch",     "mandatory": True,  "target_pct": 0.35},
+    {"slot": "afternoon_snack", "mandatory": False},
+    {"slot": "dinner",    "mandatory": True,  "target_pct": 0.30},
+    {"slot": "late_snack", "mandatory": False},
+]
+
 @dataclass(frozen=True)
 class MealCandidate:
     id: str
@@ -1210,76 +1219,118 @@ def build_meal_pools(user, daily_budget, include_custom=False):
     return pools
 
 
-def pick_best_candidate(pool, calorie_gap, budget, used_ids, strategy):
-    candidates = [
-        m for m in pool
-        if float(m.price) <= budget and m.id not in used_ids
-    ]
+def score_candidate(meal, calorie_gap, budget, strategy):
+    """
+    Smarter candidate scoring (delta-based) with Strategy Support.
+    Returns -1 if item doesn't improve the calorie gap or exceeds budget.
+    """
+    if float(meal.price) > budget:
+        return -1.0
 
-    if not candidates:
-        return None
+    before = abs(calorie_gap)
+    after = abs(calorie_gap - meal.calories)
 
-    def score(m):
-        cal_diff = abs(calorie_gap - m.calories)
-        cal_score = max(0.0, 1.0 - cal_diff / max(calorie_gap, 100))
-        efficiency = float(m.calories) / max(float(m.price), 1.0)
-        base = (cal_score * CAL_MATCH_WEIGHT) + (min(efficiency / 50.0, 1.0) * EFFICIENCY_WEIGHT)
-        return float(base) + strategy_bonus(m, strategy)
+    improvement = float(before - after)
+    
+    # Threshold: If it makes the gap WORSE, we don't eat it
+    # Exception: if we are very close (gap < 50), and it's a mandatory meal, we might allow it
+    # but strictly following user rule: "improvement <= 0 -> we don't eat it"
+    if improvement <= 0:
+        return -1.0
 
-    return max(candidates, key=score)
+    efficiency = float(meal.calories) / max(float(meal.price), 1.0)
+    
+    # Strategy Bonus
+    bonus = strategy_bonus(meal, strategy)
+    
+    return improvement + (efficiency * 0.05) + bonus
 
 
-def optimize_plan(slots, pools, target_calories, budget, strategy):
-    best_plan = None
-    best_error = float("inf")
+def pick_best_improving_item(pool, calorie_gap, budget, used_ids, strategy):
+    """
+    Picks the best item that improves the calorie gap.
+    """
+    best = None
+    best_score = -1.0
 
-    for _ in range(OPTIMIZATION_TRIALS):
-        used_ids = set()
-        remaining_budget = budget
-        total_calories = 0
-        total_protein = 0.0
-        plan = {}
+    for meal in pool:
+        if meal.id in used_ids:
+            continue
 
-        trial_slots = list(slots)
-        random.shuffle(trial_slots)
+        score = score_candidate(meal, calorie_gap, budget, strategy)
+        if score > best_score:
+            best = meal
+            best_score = score
 
-        for slot_name, pct in trial_slots:
-            slot_target = int(target_calories * pct)
-            plan[slot_name] = []
-            pool = pools.get(slot_name.lower().split('/')[0].split(' ')[0], pools.get("lunch"))
+    return best
+
+
+def generate_normal_day_plan(pools, target_calories, budget, strategy):
+    """
+    New optimizer based on "normal human behavior" and Smart Eating Day patterns.
+    """
+    used_ids = set()
+    remaining_budget = float(budget)
+    calorie_gap = target_calories
+
+    plan = {}
+    total_calories = 0
+    total_cost = 0.0
+    total_protein = 0.0
+
+    for block in DAY_STRUCTURE:
+        slot = block["slot"]
+        plan[slot] = []
+
+        # Map slot to pool key
+        if "_snack" in slot:
+            pool_key = "snack"
+        else:
+            pool_key = slot
+            
+        pool = pools.get(pool_key, pools.get("lunch", []))
+
+        # Mandatory meals: try to hit soft target
+        if block.get("mandatory"):
+            slot_target = int(target_calories * block["target_pct"])
 
             for _ in range(MAX_ITEMS_PER_MEAL):
-                if slot_target < 40:
+                if slot_target <= 50:
                     break
 
-                item = pick_best_candidate(
-                    pool,
-                    slot_target,
-                    remaining_budget,
-                    used_ids,
-                    strategy
+                item = pick_best_improving_item(
+                    pool, slot_target, remaining_budget, used_ids, strategy
                 )
-
                 if not item:
                     break
 
-                plan[slot_name].append(item)
+                plan[slot].append(item)
                 used_ids.add(item.id)
 
                 slot_target -= item.calories
+                calorie_gap -= item.calories
                 total_calories += item.calories
+                total_cost += float(item.price)
                 total_protein += float(item.protein)
                 remaining_budget -= float(item.price)
 
-        error = abs(total_calories - target_calories)
-        if error < best_error:
-            best_error = error
-            best_plan = (plan, total_calories, total_protein, budget - remaining_budget)
+        # Optional snacks: ONLY if they help global daily gap
+        else:
+            # For snacks, we look at the OVERALL daily calorie gap improvement
+            item = pick_best_improving_item(
+                pool, calorie_gap, remaining_budget, used_ids, strategy
+            )
+            if item:
+                plan[slot].append(item)
+                used_ids.add(item.id)
 
-        if error < 50:
-            break
+                calorie_gap -= item.calories
+                total_calories += item.calories
+                total_cost += float(item.price)
+                total_protein += float(item.protein)
+                remaining_budget -= float(item.price)
 
-    return best_plan
+    return plan, total_calories, total_protein, total_cost
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -1297,19 +1348,6 @@ def generate_plan(request):
             meals_count = 3
         meals_count = max(1, min(6, meals_count))
 
-        # Define time slots based on meal count
-        if meals_count == 1:
-            slots = [("Lunch/Dinner", 1.0)]
-        elif meals_count == 2:
-            slots = [("Lunch", 0.5), ("Dinner", 0.5)]
-        elif meals_count == 3:
-            slots = [("Breakfast", 0.3), ("Lunch", 0.4), ("Dinner", 0.3)]
-        else:
-            # Distribute for 4-6 meals
-            slots = [("Breakfast", 0.2), ("Lunch", 0.3), ("Dinner", 0.25)]
-            rem = 0.25
-            for i in range(meals_count - 3):
-                slots.append((f"Snack {i+1}", rem / (meals_count - 3)))
 
         include_custom = request.data.get("include_custom", False)
         pools = build_meal_pools(request.user, daily_budget, include_custom=include_custom)
@@ -1320,20 +1358,37 @@ def generate_plan(request):
         profile.last_plan_variant = strategy_index
         profile.save()
 
-        result = optimize_plan(slots, pools, target_calories, daily_budget, strategy)
-        if not result:
+        # Call New Optimizer (Smart Eating Day)
+        plan_groups, total_calories, total_protein, total_cost = generate_normal_day_plan(
+            pools, target_calories, daily_budget, strategy
+        )
+        
+        if not plan_groups:
             return Response({"error": "Unable to generate plan with current budget/calories."}, status=400)
-
-        plan_groups, total_calories, total_protein, total_cost = result
 
         # Format output for frontend
         response_items = []
-        # Maintain order of slots for UI consistency
-        for slot_label, _ in slots:
-            items = plan_groups.get(slot_label, [])
+        
+        labels_map = {
+            'breakfast': 'Breakfast', 
+            'lunch': 'Lunch', 
+            'dinner': 'Dinner',
+            'morning_snack': 'Morning Snack',
+            'afternoon_snack': 'Afternoon Snack',
+            'late_snack': 'Late Snack'
+        }
+
+        # Maintain order of DAY_STRUCTURE for UI consistency
+        for block in DAY_STRUCTURE:
+            slot_name = block["slot"]
+            items = plan_groups.get(slot_name, [])
+            
+            # Label Handling
+            base_label = labels_map.get(slot_name, slot_name.replace("_", " ").title())
+            
             for i, item in enumerate(items):
                 response_items.append({
-                    "meal_label": slot_label if i == 0 else "Sides & Extras",
+                    "meal_label": base_label if i == 0 else "Sides & Extras",
                     "name": item.name,
                     "name_ar": item.name_ar,
                     "calories": item.calories,
@@ -1352,7 +1407,7 @@ def generate_plan(request):
             "total_cost": round(float(total_cost), 2),
             "plan_variant": strategy,
             "warning": "" if abs(total_calories - target_calories) < 200 else "Adjusted to fit targets",
-            "meals_count": meals_count
+            "meals_count": meals_count # Return for compatibility, though we use DAY_STRUCTURE
         })
 
     except Exception as e:
