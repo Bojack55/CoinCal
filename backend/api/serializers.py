@@ -294,16 +294,16 @@ class EgyptianMealUnifiedSerializer(serializers.ModelSerializer):
         return obj._nutrition_memo
 
     def get_calories(self, obj):
-        return int(self._get_nut(obj)['calories'])
+        return int(float(self._get_nut(obj).get('calories', 0)))
 
     def get_protein(self, obj):
-        return self._get_nut(obj)['protein']
+        return float(self._get_nut(obj).get('protein', 0))
 
     def get_carbs(self, obj):
-        return self._get_nut(obj)['carbs']
+        return float(self._get_nut(obj).get('carbs', 0))
 
     def get_fats(self, obj):
-        return self._get_nut(obj)['fat']
+        return float(self._get_nut(obj).get('fat', 0)) or float(self._get_nut(obj).get('fats', 0))
 
     def get_price(self, obj):
         base_price = self._get_nut(obj)['price']
@@ -344,10 +344,10 @@ class LocationAwareBaseMealSerializer(serializers.ModelSerializer):
         # MarketPriceSerializer used source='meal.protein_g' named 'protein'.
         # So I need to alias them.
     
-    protein = serializers.DecimalField(source='protein_g', max_digits=8, decimal_places=2, read_only=True)
-    carbs = serializers.DecimalField(source='carbs_g', max_digits=8, decimal_places=2, read_only=True)
-    fats = serializers.DecimalField(source='fats_g', max_digits=8, decimal_places=2, read_only=True)
-    fiber = serializers.DecimalField(source='fiber_g', max_digits=8, decimal_places=2, read_only=True)
+    protein = serializers.FloatField(source='protein_g', read_only=True)
+    carbs = serializers.FloatField(source='carbs_g', read_only=True)
+    fats = serializers.FloatField(source='fats_g', read_only=True)
+    fiber = serializers.FloatField(source='fiber_g', read_only=True)
 
     def get_price(self, obj):
         multiplier = self.context.get('location_multiplier', 1.0)

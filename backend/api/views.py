@@ -204,80 +204,67 @@ def login_user(request):
 def get_food_list(request):
     """
     Retrieve comprehensive meal catalog with location-based prices.
-    
-    Returns meals available at user's location with price adjustments.
     """
-    profile = request.user.profile
-    
-    # Allow location override via query param (optional, for testing)
-    # If location param is present and differs, we'd theoretically re-lookup category.
-    # For now, rely on profile settings as that's the persisted state.
-    
-    multiplier = profile.get_location_multiplier()
-    city_name = profile.current_location or 'Cairo'
-    
-    context = {
-        'location_multiplier': multiplier,
-        'city_name': city_name
-    }
-    
-    # Query Parameters
-    healthy_only = request.query_params.get('healthy', 'false').lower() == 'true'
-    standard_portion_only = request.query_params.get('standard_portion', 'false').lower() == 'true'
-    
-    # 1. Base Meals
-    meals_query = BaseMeal.objects.all()
-    
-    if healthy_only:
-        meals_query = meals_query.filter(is_healthy=True)
-    if standard_portion_only:
-        meals_query = meals_query.filter(is_standard_portion=True)
+    try:
+        profile = request.user.profile
+        multiplier = profile.get_location_multiplier()
+        city_name = profile.current_location or 'Cairo'
         
-    market_data = LocationAwareBaseMealSerializer(meals_query, many=True, context=context).data
-    
-    # 2. User Custom Meals
-    custom_meals = UserCustomMeal.objects.filter(user=request.user)
-    custom_data = UserCustomMealSerializer(custom_meals, many=True).data
-    
-    # 3. Egyptian Meals (Optional/Legacy Support)
-    # We include them but BaseMeal is now the primary source for the 74 standard meals.
-    egyptian_meals = EgyptianMeal.objects.all().prefetch_related('recipe_items__ingredient')
-    egyptian_data = EgyptianMealUnifiedSerializer(egyptian_meals, many=True, context=context).data
-
-    # Deduplication: BaseMeals are now authoritative for standard items.
-    # EgyptianMeals might duplicate them if they share names/ids.
-    # We'll filter out EgyptianMeals if a BaseMeal with same name exists?
-    # Or just combine.
-    # Given rebuild_food_db CLEARED EgyptianMeals and didn't recreate them (unless I missed it),
-    # this list might be empty.
-    
-    all_data = market_data + custom_data + egyptian_data
-
-    # Sorting
-    sort_mode = request.query_params.get('sort', 'default')
-    
-    if sort_mode == 'smart':
-        # Efficiency Score = Calories / Price. High is better.
-        def get_efficiency(item):
-            try:
-                price = float(item.get('price', 0) or 0)
-                cals = float(item.get('calories', 0) or 0)
-                if price > 0:
-                     return cals / price
-            except (ValueError, TypeError):
-                pass
-            return 0 # Low priority if invalid
-        all_data.sort(key=get_efficiency, reverse=True)
+        context = {
+            'location_multiplier': multiplier,
+            'city_name': city_name
+        }
         
-    elif sort_mode == 'price':
-        # Sort by price ascending
-        all_data.sort(key=lambda x: float(x.get('price', 0) or 0))
+        # Query Parameters
+        healthy_only = request.query_params.get('healthy', 'false').lower() == 'true'
+        standard_portion_only = request.query_params.get('standard_portion', 'false').lower() == 'true'
         
-    elif sort_mode == 'price_desc':
-        # Sort by price descending
-        all_data.sort(key=lambda x: float(x.get('price', 0) or 0), reverse=True)
+        # 1. Base Meals
+        meals_query = BaseMeal.objects.all()
+        
+        if healthy_only:
+            meals_query = meals_query.filter(is_healthy=True)
+        if standard_portion_only:
+            meals_query = meals_query.filter(is_standard_portion=True)
+            
+        market_data = LocationAwareBaseMealSerializer(meals_query, many=True, context=context).data
+        
+        # 2. User Custom Meals
+        custom_meals = UserCustomMeal.objects.filter(user=request.user)
+        custom_data = UserCustomMealSerializer(custom_meals, many=True).data
+        
+        # 3. Egyptian Meals
+        egyptian_meals = EgyptianMeal.objects.all().prefetch_related('recipe_items__ingredient')
+        egyptian_data = EgyptianMealUnifiedSerializer(egyptian_meals, many=True, context=context).data
+        
+        all_data = market_data + custom_data + egyptian_data
 
-    return Response(all_data)
+        # Sorting
+        sort_mode = request.query_params.get('sort', 'default')
+        if sort_mode == 'smart':
+            def get_efficiency(item):
+                try:
+                    price = float(item.get('price', 0) or 0)
+                    cals = float(item.get('calories', 0) or 0)
+                    if price > 0: return cals / price
+                except: pass
+                return 0
+            all_data.sort(key=get_efficiency, reverse=True)
+        elif sort_mode == 'price':
+            all_data.sort(key=lambda x: float(x.get('price', 0) or 0))
+        elif sort_mode == 'price_desc':
+            all_data.sort(key=lambda x: float(x.get('price', 0) or 0), reverse=True)
+
+        return Response(all_data)
+    except Exception as e:
+        import traceback
+        with open('crash_food.log', 'w') as f:
+            f.write(traceback.format_exc())
+        return Response({
+            "error": "Food list failed to load",
+            "details": str(e),
+            "traceback": traceback.format_exc()
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
