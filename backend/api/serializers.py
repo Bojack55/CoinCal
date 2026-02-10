@@ -294,16 +294,16 @@ class EgyptianMealUnifiedSerializer(serializers.ModelSerializer):
         return obj._nutrition_memo
 
     def get_calories(self, obj):
-        return int(float(self._get_nut(obj).get('calories', 0)))
+        return int(self._get_nut(obj)['calories'])
 
     def get_protein(self, obj):
-        return float(self._get_nut(obj).get('protein', 0))
+        return self._get_nut(obj)['protein']
 
     def get_carbs(self, obj):
-        return float(self._get_nut(obj).get('carbs', 0))
+        return self._get_nut(obj)['carbs']
 
     def get_fats(self, obj):
-        return float(self._get_nut(obj).get('fat', 0)) or float(self._get_nut(obj).get('fats', 0))
+        return self._get_nut(obj)['fat']
 
     def get_price(self, obj):
         base_price = self._get_nut(obj)['price']
@@ -344,14 +344,15 @@ class LocationAwareBaseMealSerializer(serializers.ModelSerializer):
         # MarketPriceSerializer used source='meal.protein_g' named 'protein'.
         # So I need to alias them.
     
-    protein = serializers.FloatField(source='protein_g', read_only=True)
-    carbs = serializers.FloatField(source='carbs_g', read_only=True)
-    fats = serializers.FloatField(source='fats_g', read_only=True)
-    fiber = serializers.FloatField(source='fiber_g', read_only=True)
+    protein = serializers.DecimalField(source='protein_g', max_digits=8, decimal_places=2, read_only=True)
+    carbs = serializers.DecimalField(source='carbs_g', max_digits=8, decimal_places=2, read_only=True)
+    fats = serializers.DecimalField(source='fats_g', max_digits=8, decimal_places=2, read_only=True)
+    fiber = serializers.DecimalField(source='fiber_g', max_digits=8, decimal_places=2, read_only=True)
 
     def get_price(self, obj):
         multiplier = self.context.get('location_multiplier', 1.0)
-        original_price = float(obj.base_price or 0)
+        # obj.base_price is Decimal
+        original_price = float(obj.base_price)
         return round(original_price * float(multiplier), 2)
 
     def get_restaurant_name(self, obj):
@@ -374,7 +375,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 class WeightLogSerializer(serializers.ModelSerializer):
-    weight = serializers.FloatField()
     class Meta:
         model = WeightLog
         fields = ['id', 'weight', 'date', 'created_at']
@@ -387,9 +387,6 @@ class MealLogSerializer(serializers.ModelSerializer):
 class MealLogDetailedSerializer(serializers.ModelSerializer):
     meal_name = serializers.SerializerMethodField()
     meal_name_ar = serializers.SerializerMethodField()
-    
-    final_calories = serializers.IntegerField()
-    final_price = serializers.FloatField()
     
     class Meta:
         model = MealLog

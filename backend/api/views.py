@@ -1,6 +1,5 @@
-from datetime import date, timedelta
-from dataclasses import dataclass
 import random
+from datetime import date, timedelta
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from rest_framework.decorators import api_view, permission_classes
@@ -24,6 +23,32 @@ from .serializers import (
 )
 from .utils.meal_helpers import is_egyptian_meal, calculate_meal_efficiency
 from .utils.location_helpers import get_city_category
+from dataclasses import dataclass
+
+# =========================
+# CONFIGURATION
+# =========================
+MIN_CALORIES = 500
+MAX_CALORIES = 5000
+MIN_BUDGET = 1.0
+CAL_MATCH_WEIGHT = 0.7
+EFFICIENCY_WEIGHT = 0.3
+MAX_ITEMS_PER_MEAL = 6
+OPTIMIZATION_TRIALS = 10
+STRATEGIES = ["Balanced", "High Protein", "Budget Saver", "High Energy", "Variety"]
+
+@dataclass(frozen=True)
+class MealCandidate:
+    id: str
+    name: str
+    name_ar: str
+    calories: int
+    protein: float
+    price: float
+    source: str
+    image: str
+    category: str  # breakfast | lunch | dinner | snack | side
+
 
 def _get_daily_metrics(profile, query_date):
     summary, _ = DailySummary.objects.get_or_create(user=profile, date=query_date)
@@ -50,19 +75,19 @@ def _get_daily_metrics(profile, query_date):
         f = Decimal('0')
         
         if log.meal:
-            p = Decimal(str(log.meal.protein_g or 0))
-            c = Decimal(str(log.meal.carbs_g or 0))
-            f = Decimal(str(log.meal.fats_g or 0))
+            p = log.meal.protein_g
+            c = log.meal.carbs_g
+            f = log.meal.fats_g
         elif log.custom_meal:
-            p = Decimal(str(log.custom_meal.protein_g or 0))
-            c = Decimal(str(log.custom_meal.carbs_g or 0))
-            f = Decimal(str(log.custom_meal.fats_g or 0))
+            p = log.custom_meal.protein_g
+            c = log.custom_meal.carbs_g
+            f = log.custom_meal.fats_g
         elif log.egyptian_meal:
             # Calculate from ingredients
             nut = log.egyptian_meal.calculate_nutrition()
-            p = Decimal(str(nut.get('protein', 0)))
-            c = Decimal(str(nut.get('carbs', 0)))
-            f = Decimal(str(nut.get('fat', 0)))
+            p = nut['protein']
+            c = nut['carbs']
+            f = nut['fat']
             
         protein += p * qt * mod
         carbs += c * qt * mod
@@ -204,67 +229,80 @@ def login_user(request):
 def get_food_list(request):
     """
     Retrieve comprehensive meal catalog with location-based prices.
+    
+    Returns meals available at user's location with price adjustments.
     """
-    try:
-        profile = request.user.profile
-        multiplier = profile.get_location_multiplier()
-        city_name = profile.current_location or 'Cairo'
+    profile = request.user.profile
+    
+    # Allow location override via query param (optional, for testing)
+    # If location param is present and differs, we'd theoretically re-lookup category.
+    # For now, rely on profile settings as that's the persisted state.
+    
+    multiplier = profile.get_location_multiplier()
+    city_name = profile.current_location or 'Cairo'
+    
+    context = {
+        'location_multiplier': multiplier,
+        'city_name': city_name
+    }
+    
+    # Query Parameters
+    healthy_only = request.query_params.get('healthy', 'false').lower() == 'true'
+    standard_portion_only = request.query_params.get('standard_portion', 'false').lower() == 'true'
+    
+    # 1. Base Meals
+    meals_query = BaseMeal.objects.all()
+    
+    if healthy_only:
+        meals_query = meals_query.filter(is_healthy=True)
+    if standard_portion_only:
+        meals_query = meals_query.filter(is_standard_portion=True)
         
-        context = {
-            'location_multiplier': multiplier,
-            'city_name': city_name
-        }
-        
-        # Query Parameters
-        healthy_only = request.query_params.get('healthy', 'false').lower() == 'true'
-        standard_portion_only = request.query_params.get('standard_portion', 'false').lower() == 'true'
-        
-        # 1. Base Meals
-        meals_query = BaseMeal.objects.all()
-        
-        if healthy_only:
-            meals_query = meals_query.filter(is_healthy=True)
-        if standard_portion_only:
-            meals_query = meals_query.filter(is_standard_portion=True)
-            
-        market_data = LocationAwareBaseMealSerializer(meals_query, many=True, context=context).data
-        
-        # 2. User Custom Meals
-        custom_meals = UserCustomMeal.objects.filter(user=request.user)
-        custom_data = UserCustomMealSerializer(custom_meals, many=True).data
-        
-        # 3. Egyptian Meals
-        egyptian_meals = EgyptianMeal.objects.all().prefetch_related('recipe_items__ingredient')
-        egyptian_data = EgyptianMealUnifiedSerializer(egyptian_meals, many=True, context=context).data
-        
-        all_data = market_data + custom_data + egyptian_data
+    market_data = LocationAwareBaseMealSerializer(meals_query, many=True, context=context).data
+    
+    # 2. User Custom Meals
+    custom_meals = UserCustomMeal.objects.filter(user=request.user)
+    custom_data = UserCustomMealSerializer(custom_meals, many=True).data
+    
+    # 3. Egyptian Meals (Optional/Legacy Support)
+    # We include them but BaseMeal is now the primary source for the 74 standard meals.
+    egyptian_meals = EgyptianMeal.objects.all().prefetch_related('recipe_items__ingredient')
+    egyptian_data = EgyptianMealUnifiedSerializer(egyptian_meals, many=True, context=context).data
 
-        # Sorting
-        sort_mode = request.query_params.get('sort', 'default')
-        if sort_mode == 'smart':
-            def get_efficiency(item):
-                try:
-                    price = float(item.get('price', 0) or 0)
-                    cals = float(item.get('calories', 0) or 0)
-                    if price > 0: return cals / price
-                except: pass
-                return 0
-            all_data.sort(key=get_efficiency, reverse=True)
-        elif sort_mode == 'price':
-            all_data.sort(key=lambda x: float(x.get('price', 0) or 0))
-        elif sort_mode == 'price_desc':
-            all_data.sort(key=lambda x: float(x.get('price', 0) or 0), reverse=True)
+    # Deduplication: BaseMeals are now authoritative for standard items.
+    # EgyptianMeals might duplicate them if they share names/ids.
+    # We'll filter out EgyptianMeals if a BaseMeal with same name exists?
+    # Or just combine.
+    # Given rebuild_food_db CLEARED EgyptianMeals and didn't recreate them (unless I missed it),
+    # this list might be empty.
+    
+    all_data = market_data + custom_data + egyptian_data
 
-        return Response(all_data)
-    except Exception as e:
-        import traceback
-        with open('crash_food.log', 'w') as f:
-            f.write(traceback.format_exc())
-        return Response({
-            "error": "Food list failed to load",
-            "details": str(e),
-            "traceback": traceback.format_exc()
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    # Sorting
+    sort_mode = request.query_params.get('sort', 'default')
+    
+    if sort_mode == 'smart':
+        # Efficiency Score = Calories / Price. High is better.
+        def get_efficiency(item):
+            try:
+                price = float(item.get('price', 0) or 0)
+                cals = float(item.get('calories', 0) or 0)
+                if price > 0:
+                     return cals / price
+            except (ValueError, TypeError):
+                pass
+            return 0 # Low priority if invalid
+        all_data.sort(key=get_efficiency, reverse=True)
+        
+    elif sort_mode == 'price':
+        # Sort by price ascending
+        all_data.sort(key=lambda x: float(x.get('price', 0) or 0))
+        
+    elif sort_mode == 'price_desc':
+        # Sort by price descending
+        all_data.sort(key=lambda x: float(x.get('price', 0) or 0), reverse=True)
+
+    return Response(all_data)
 
 
 
@@ -453,77 +491,79 @@ def create_custom_meal_from_ingredients(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_dashboard(request):
-    try:
-        date_str = request.query_params.get('date')
-        if date_str:
-            try:
-                query_date = date.fromisoformat(date_str)
-            except:
-                query_date = date.today()
-        else:
-            query_date = date.today()
-
-        profile = request.user.profile
-        metrics = _get_daily_metrics(profile, query_date)
-        summary = metrics.get('summary')
-        macros = metrics.get('macros', {"protein": 0.0, "carbs": 0.0, "fat": 0.0})
-
-        # Ensure summary exists
-        if not summary:
-            summary, _ = DailySummary.objects.get_or_create(user=profile, date=query_date)
-
-        user = request.user
-        full_name = f"{user.first_name} {user.last_name}".strip() if user.first_name else user.username
+    """
+    Retrieve comprehensive dashboard metrics for the authenticated user.
+    
+    Returns daily summary including calories consumed, budget spent, macros,
+    water intake, and progress towards goals. Optionally accepts a date
+    parameter for historical data.
+    
+    Query Parameters:
+        date (str, optional): Date in YYYY-MM-DD format (default: today)
         
-        status_obj = DayStatus.objects.filter(user=profile, date=query_date).first()
-        day_status = status_obj.status if status_obj else 'standard'
-        
-        # Safe Budget & Calorie Math
-        budget_limit = float(profile.daily_budget_limit or 0)
-        budget_spent = float(summary.total_budget_spent or 0)
-        
-        cal_goal = int(profile.calorie_goal or 0)
-        cal_eaten = int(summary.total_calories_consumed or 0)
+    Returns:
+        Response: JSON with dashboard metrics
+            - date: Query date
+            - calories_consumed: Total calories for the day
+            - calorie_goal: User's target calories
+            - budget_spent: Money spent in EGP
+            - budget_limit: Daily budget limit
+            - macros: {protein, carbs, fats} in grams
+            - water_intake: Glasses of water consumed
+            - progress_percentage: Calorie goal completion %
+            
+    Example:
+        GET /api/dashboard/
+        GET /api/dashboard/?date=2026-02-05
+    """
+    date_str = request.query_params.get('date')
+    if date_str:
+        query_date = date.fromisoformat(date_str)
+    else:
+        query_date = date.today()
 
-        return Response({
-            "date": query_date.isoformat(),
-            "budget": {
-                "limit": budget_limit,
-                "spent": budget_spent,
-                "remaining": round(max(0.0, budget_limit - budget_spent), 2)
-            },
-            "calories": {
-                "goal": cal_goal,
-                "eaten": cal_eaten,
-                "remaining": max(0, cal_goal - cal_eaten)
-            },
-            "macros": macros,
-            "water": int(summary.water_intake_cups or 0),
-            "location": str(profile.current_location or "Cairo"),
-            "full_name": str(full_name),
-            "current_weight": float(profile.current_weight or profile.weight or 0),
-            "height": float(profile.height or 0),
-            "age": int(profile.age or 0),
-            "gender": str(profile.gender or "M"),
-            "goal_weight": float(profile.goal_weight or 0),
-            "ideal_weight": float(profile.ideal_weight or 0),
-            "activity_level": str(profile.activity_level or "Moderate"),
-            "preferred_brands": str(profile.preferred_brands or ""),
-            "is_premium": bool(profile.is_premium),
-            "body_fat": float(profile.body_fat_percentage or 0),
-            "diet_mode": str(profile.diet_mode or "BALANCED"),
-            "weight_history": WeightLogSerializer(profile.weight_logs.all().order_by('date'), many=True).data,
-            "day_status": day_status
-        })
-    except Exception as e:
-        import traceback
-        with open('crash.log', 'w') as f:
-            f.write(traceback.format_exc())
-        return Response({
-            "error": "Dashboard failed to load",
-            "details": str(e),
-            "traceback": traceback.format_exc()
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    profile = request.user.profile
+    metrics = _get_daily_metrics(profile, query_date)
+    summary = metrics['summary']
+    macros = metrics['macros']
+
+    user = request.user
+    full_name = f"{user.first_name} {user.last_name}".strip() if user.first_name else user.username
+    
+    status_obj = DayStatus.objects.filter(user=profile, date=query_date).first()
+    day_status = status_obj.status if status_obj else 'standard'
+    
+    return Response({
+        "date": query_date.isoformat(),
+        "budget": {
+            "limit": float(profile.daily_budget_limit or 0),
+            "spent": float(summary.total_budget_spent or 0),
+            "remaining": float(max(Decimal('0'), profile.daily_budget_limit - summary.total_budget_spent))
+        },
+        "calories": {
+            "goal": float(profile.calorie_goal or 0),
+            "eaten": float(summary.total_calories_consumed or 0),
+            "remaining": float(max(0, (profile.calorie_goal or 0) - summary.total_calories_consumed))
+        },
+        "macros": macros,
+        "water": int(summary.water_intake_cups or 0),
+        "location": profile.current_location,
+        # User profile data for profile page
+        "full_name": full_name,
+        "current_weight": float(profile.weight) if profile.weight else None,
+        "height": float(profile.height) if profile.height else None,
+        "age": int(profile.age) if profile.age else None,
+        "gender": profile.gender,
+        "goal_weight": float(profile.goal_weight) if profile.goal_weight else None,
+        "ideal_weight": float(profile.ideal_weight) if profile.ideal_weight else None,
+        "activity_level": profile.activity_level,
+        "preferred_brands": profile.preferred_brands,
+        "is_premium": bool(profile.is_premium),
+        "body_fat": float(profile.body_fat_percentage) if profile.body_fat_percentage else None,
+        "diet_mode": profile.diet_mode,
+        "weight_history": WeightLogSerializer(profile.weight_logs.all().order_by('date'), many=True).data,
+        "day_status": day_status
+    })
 
 
 @api_view(['GET', 'POST'])
@@ -994,275 +1034,287 @@ def log_recipe(request):
     
     return Response({"message": "Recipe plate logged successfully!"}, status=status.HTTP_201_CREATED)
 
-
 # =========================
-# CONFIGURATION
-# =========================
-
-MIN_CALORIES = 500
-MAX_CALORIES = 5000
-MIN_BUDGET = 1.0
-
-CAL_MATCH_WEIGHT = 0.7
-EFFICIENCY_WEIGHT = 0.3
-
-MAX_ITEMS_PER_MEAL = 6
-OPTIMIZATION_TRIALS = 15
-
-STRATEGIES = [
-    "Balanced",
-    "High Protein",
-    "Budget Saver",
-    "High Energy",
-    "Variety"
-]
-
-@dataclass(frozen=True)
-class MealCandidate:
-    id: str
-    name: str
-    name_ar: str
-    calories: int
-    protein: float
-    price: float
-    source: str
-    image: str
-    category: str  # breakfast | lunch | dinner | snack | side
-
-
-# =========================
-# HELPERS
+# DIET PLAN HELPERS
 # =========================
 
 def resolve_user_targets(profile, request):
-    from .utils.nutrition import calculate_tdee
-    
-    weight = float(profile.current_weight or profile.weight or 70)
+    weight = float(profile.current_weight or 70)
     height = float(profile.height or 170)
     age = int(profile.age or 25)
     gender = profile.gender or "M"
     activity = profile.activity_level or "Moderate"
 
-    # Use existing TDEE logic
-    bmr = (10 * weight) + (6.25 * height) - (5 * age) + (5 if gender == "M" else -161)
-    tdee = int(calculate_tdee(Decimal(str(bmr)), activity))
+    multipliers = {
+        "Sedentary": 1.2,
+        "Light": 1.375,
+        "Moderate": 1.55,
+        "Active": 1.725,
+        "Very Active": 1.9
+    }
 
-    target_calories = request.data.get("target_calories")
+    base_bmr = (10 * weight) + (6.25 * height) - (5 * age)
+    bmr = base_bmr + (5 if gender == "M" else -161)
+    tdee = int(bmr * multipliers.get(activity, 1.55))
+
+    target_calories = getattr(profile, "calorie_goal", None)
     if not target_calories:
-        target_calories = profile.calorie_goal or tdee
-    target_calories = int(target_calories)
+        try:
+            target_calories = int(request.data.get("target_calories", tdee))
+        except (ValueError, TypeError):
+            target_calories = tdee
+
     target_calories = max(MIN_CALORIES, min(MAX_CALORIES, target_calories))
 
-    budget = request.data.get("daily_budget")
+    budget = getattr(profile, "daily_budget_limit", None)
     if not budget:
-        budget = float(profile.daily_budget_limit or 50)
-    budget = float(budget) if budget else 50.0
+        try:
+            budget = float(request.data.get("daily_budget", 50))
+        except (ValueError, TypeError):
+            budget = 50.0
 
-    return target_calories, max(budget, MIN_BUDGET)
+    return target_calories, max(float(budget), MIN_BUDGET)
+
+
+def strategy_bonus(meal, strategy):
+    if strategy == "High Protein":
+        return float(meal.protein) * 0.5
+    if strategy == "Budget Saver":
+        return -float(meal.price)
+    if strategy == "High Energy":
+        return float(meal.calories) * 0.01
+    if strategy == "Variety":
+        return random.uniform(-0.2, 0.2)
+    return 0.0  # Balanced
+
 
 def build_meal_pools(user, daily_budget, include_custom=False):
     profile = user.profile
-    multiplier = float(profile.get_location_multiplier())
+    multiplier = profile.get_location_multiplier()
     
-    # Handle string boolean from request
-    if isinstance(include_custom, str):
-        include_custom = include_custom.lower() == 'true'
-
     pools = {
         "breakfast": [],
         "lunch": [],
         "dinner": [],
-        "snack": [],
-        "side": []
+        "snack": []
     }
 
     # Helper to identify sides
-    def get_category_and_is_side(name, cals):
-        name_l = name.lower() if name else ""
-        is_side = False
-        if any(x in name_l for x in ['rice', 'bread', 'salad', 'baladi', 'عيش', 'أرز', 'سلطة', 'خبز', 'vegetables', 'fino', 'toast', 'shamy', 'dip', 'tahina', 'baba', 'soup', 'pickle', 'dessert', 'sweet']):
-            # Exclude combos
-            if not any(x in name_l for x in ['with', 'and', 'كشري', 'koshari', 'koshary', 'sandwich', 'hawawshi', 'burger', 'pizza']):
-                is_side = True
-        if cals < 180 and not is_side:
-            is_side = True
-        return is_side
+    def is_side_dish(name, calories):
+        name_lower = name.lower()
+        if any(x in name_lower for x in ['with', 'and', 'كشري', 'koshari', 'koshary', 'sandwich', 'hawawshi', 'burger', 'pizza']):
+            return False
+        side_keywords = ['rice', 'bread', 'salad', 'baladi', 'عيش', 'أرز', 'سلطة', 'خبز',
+                        'vegetables', 'cucumber', 'tomato', 'خيار', 'طماطم', 'fino', 'toast', 
+                        'shamy', 'peta', 'dip', 'tahina', 'baba', 'soup', 'goulash_sweet',
+                        'sambousek', 'kobeba', 'turshi', 'pickle', 'dessert', 'sweet']
+        return any(kw in name_lower for kw in side_keywords) or calories < 180
 
-    # 1. Base Meals
-    for m in BaseMeal.objects.all():
-        price = float(m.base_price or 0) * multiplier
+    # 1. BaseMeals (Market)
+    for meal in BaseMeal.objects.all():
+        price = float(meal.base_price) * float(multiplier)
         if price > daily_budget: continue
         
-        c = "side" if get_category_and_is_side(m.name, m.calories) else (m.meal_type or "Lunch").lower()
-        cand = MealCandidate(
-            id=f"base_{m.id}", name=m.name or "Unnamed Meal", name_ar=m.name_ar or m.name or "وجبة غير مسماة",
-            calories=m.calories or 0, protein=float(m.protein_g or 0), price=price,
-            source="Market", image=m.image_url or "", category=c
+        candidate = MealCandidate(
+            id=str(meal.id),
+            name=meal.name,
+            name_ar=meal.name_ar or "",
+            calories=meal.calories,
+            protein=float(meal.protein_g),
+            price=round(price, 2),
+            source="Market",
+            image=meal.image_url or "",
+            category=meal.meal_type.lower()
         )
         
-        target_pool = c if c in pools else "lunch"
-        pools[target_pool].append(cand)
-        if c == "lunch": pools["dinner"].append(cand)
-        elif c == "dinner": pools["lunch"].append(cand)
+        cat = candidate.category
+        if is_side_dish(candidate.name, candidate.calories):
+            pools["snack"].append(candidate) # Sides treated as snacks/fillers
+        else:
+            if "breakfast" in cat: pools["breakfast"].append(candidate)
+            if "lunch" in cat: pools["lunch"].append(candidate); pools["dinner"].append(candidate)
+            if "dinner" in cat: pools["dinner"].append(candidate); pools["lunch"].append(candidate)
+            if "snack" in cat: pools["snack"].append(candidate)
 
-    # 2. Egyptian Meals
-    for em in EgyptianMeal.objects.all().prefetch_related('recipe_items__ingredient'):
-        try:
-            calc = em.calculate_nutrition()
-            price = float(calc.get('price', 0)) * multiplier
-            if price > daily_budget: continue
-            
-            c = "side" if get_category_and_is_side(em.name_en, float(calc.get('calories', 0))) else "lunch"
-            mid = (em.meal_id or "").lower()
-            if not c == "side":
-                if any(x in mid for x in ['foul', 'tameya', 'beid', 'shakshuka', 'cheese', 'falafel']): c = "breakfast"
-                elif any(x in mid for x in ['basbousa', 'zalabya', 'om_ali', 'pudding', 'halawa', 'honey', 'sugar', 'sweet']): c = "snack"
+    # 2. EgyptianMeals
+    for item in EgyptianMeal.objects.all().prefetch_related('recipe_items__ingredient'):
+        calc = item.calculate_nutrition()
+        localized_price = float(calc['price']) * float(multiplier)
+        if localized_price > daily_budget: continue
 
-            cand = MealCandidate(
-                id=f"egy_{em.id}", name=em.name_en or "Egyptian Meal", name_ar=em.name_ar or em.name_en or "وجبة مصرية",
-                calories=int(float(calc.get('calories', 0))), protein=float(calc.get('protein', 0)), price=price,
-                source="Traditional", image=em.image_url or "", category=c
-            )
-            
-            target_pool = c if c in pools else "lunch"
-            pools[target_pool].append(cand)
-            if c == "lunch": pools["dinner"].append(cand)
-            elif c == "dinner": pools["lunch"].append(cand)
-        except: continue
+        candidate = MealCandidate(
+            id=f"egy_{item.id}",
+            name=item.name_en,
+            name_ar=item.name_ar or "",
+            calories=int(calc['calories']),
+            protein=float(calc['protein']),
+            price=round(localized_price, 2),
+            source="Traditional",
+            image=item.image_url or "",
+            category="lunch" # Default placeholder
+        )
 
-    # 3. Custom Meals & Recipes
+        mid = item.meal_id.lower()
+        is_side = is_side_dish(candidate.name, candidate.calories)
+        
+        if is_side:
+            pools["snack"].append(candidate)
+        elif any(x in mid for x in ['foul', 'tameya', 'beid', 'shakshuka', 'cheese', 'falafel']):
+            pools["breakfast"].append(candidate)
+        elif any(x in mid for x in ['basbousa', 'zalabya', 'om_ali', 'pudding', 'halawa', 'honey', 'sugar', 'sweet']):
+            pools["snack"].append(candidate)
+        else:
+            pools["lunch"].append(candidate)
+            pools["dinner"].append(candidate)
+
+    # 3. Custom Recipes
     if include_custom:
-        for cm in UserCustomMeal.objects.filter(user=user):
-            price = float(cm.base_price or 0) * multiplier
-            cand = MealCandidate(
-                id=f"cm_{cm.id}", name=cm.name or "Custom Meal", name_ar=cm.name_ar or cm.name or "وجبة مخصصة",
-                calories=cm.calories or 0, protein=float(cm.protein_g or 0), price=price,
-                source="Custom", image=cm.image_url or "", category="lunch"
-            )
-            if cand.calories < 400: pools["breakfast"].append(cand)
-            pools["lunch"].append(cand)
-            pools["dinner"].append(cand)
-
-        for r in Recipe.objects.filter(user=profile).prefetch_related('items__ingredient'):
-            try:
-                tc, tp, tcost = 0.0, 0.0, 0.0
-                for ri in r.items.all():
-                    ing = ri.ingredient
-                    scale = float(ri.amount or 0) / 100.0 if ing.unit in ['GRAM', 'ML'] else float(ri.amount or 0)
-                    tc += float(ing.calories_per_100g or 0) * scale
-                    tp += float(ing.protein_per_100g or 0) * scale
-                    tcost += (float(ri.amount or 0) / 100.0 if ing.unit in ['GRAM', 'ML'] else float(ri.amount or 0)) * float(ing.base_price or 0)
+        for recipe in Recipe.objects.filter(user=profile).prefetch_related('items__ingredient'):
+            total_cals = 0
+            total_prot = 0
+            total_cost = 0.0
+            for r_item in recipe.items.all():
+                scale = float(r_item.amount) / 100.0 if r_item.ingredient.unit in ['GRAM', 'ML'] else float(r_item.amount)
+                total_cals += float(r_item.ingredient.calories_per_100g) * scale
+                total_prot += float(r_item.ingredient.protein_per_100g) * scale
+                total_cost += scale * float(r_item.ingredient.base_price)
+            
+            if recipe.servings > 0:
+                s_cals = int(total_cals / recipe.servings)
+                s_price = (float(total_cost / recipe.servings)) * float(multiplier)
                 
-                if r.servings > 0:
-                    s_price = (tcost / r.servings) * multiplier
-                    cand = MealCandidate(
-                        id=f"recipe_{r.id}", name=r.name or "Recipe", name_ar=r.name_ar or r.name or "وصفة",
-                        calories=int(tc / r.servings), protein=tp / r.servings, price=s_price,
-                        source="Recipe Studio", image="", category="lunch"
-                    )
-                    if cand.calories < 400: pools["breakfast"].append(cand)
-                    pools["lunch"].append(cand)
-                    pools["dinner"].append(cand)
-            except: continue
+                candidate = MealCandidate(
+                    id=f"recipe_{recipe.id}",
+                    name=recipe.name,
+                    name_ar=recipe.name_ar or "",
+                    calories=s_cals,
+                    protein=float(total_prot / recipe.servings),
+                    price=round(s_price, 2),
+                    source="Recipe Studio",
+                    image="",
+                    category="lunch"
+                )
+                
+                name_l = recipe.name.lower()
+                if any(x in name_l for x in ['egg', 'oat', 'breakfast', 'toast']):
+                    pools["breakfast"].append(candidate)
+                else:
+                    pools["lunch"].append(candidate)
+                    pools["dinner"].append(candidate)
 
-    # Ensure no empty pools
-    if not pools["breakfast"]: pools["breakfast"] = pools["lunch"]
-    if not pools["lunch"]: pools["lunch"] = pools["breakfast"]
-    if not pools["dinner"]: pools["dinner"] = pools["lunch"]
-    if not pools["snack"]: pools["snack"] = pools["side"]
-
+    # Final logic: Ensure no empty pools
+    if not pools["breakfast"]: pools["breakfast"] = pools["lunch"] + pools["dinner"]
+    if not pools["lunch"]: pools["lunch"] = pools["breakfast"] + pools["dinner"]
+    if not pools["dinner"]: pools["dinner"] = pools["lunch"] + pools["breakfast"]
+    
     return pools
 
-def strategy_bonus(meal, strategy):
-    if strategy == "High Protein":
-        return meal.protein * 0.5
-    if strategy == "Budget Saver":
-        return -meal.price
-    if strategy == "High Energy":
-        return (meal.calories / 100) * 0.2
-    if strategy == "Variety":
-        return random.uniform(-2.0, 2.0)
-    return 0.0
 
 def pick_best_candidate(pool, calorie_gap, budget, used_ids, strategy):
-    candidates = [m for m in pool if m.price <= budget and m.id not in used_ids]
+    candidates = [
+        m for m in pool
+        if float(m.price) <= budget and m.id not in used_ids
+    ]
+
     if not candidates:
-        if calorie_gap > 200:
-            affordable = [m for m in pool if m.price <= budget]
-            return min(affordable, key=lambda x: x.price) if affordable else None
         return None
 
     def score(m):
         cal_diff = abs(calorie_gap - m.calories)
-        cal_score = max(0, 1 - cal_diff / max(calorie_gap, 100))
-        efficiency = m.calories / max(m.price, 1)
-        base = (cal_score * CAL_MATCH_WEIGHT) + (min(efficiency / 50, 1) * EFFICIENCY_WEIGHT)
-        return base + strategy_bonus(m, strategy)
+        cal_score = max(0.0, 1.0 - cal_diff / max(calorie_gap, 100))
+        efficiency = float(m.calories) / max(float(m.price), 1.0)
+        base = (cal_score * CAL_MATCH_WEIGHT) + (min(efficiency / 50.0, 1.0) * EFFICIENCY_WEIGHT)
+        return float(base) + strategy_bonus(m, strategy)
 
     return max(candidates, key=score)
+
 
 def optimize_plan(slots, pools, target_calories, budget, strategy):
     best_plan = None
     best_error = float("inf")
 
     for _ in range(OPTIMIZATION_TRIALS):
-        used_ids, remaining_budget, total_calories, total_protein = set(), budget, 0, 0.0
-        plan = {s[0]: [] for s in slots}
+        used_ids = set()
+        remaining_budget = budget
+        total_calories = 0
+        total_protein = 0.0
+        plan = {}
 
         trial_slots = list(slots)
         random.shuffle(trial_slots)
 
         for slot_name, pct in trial_slots:
             slot_target = int(target_calories * pct)
-            main_pool = pools.get(slot_name, pools["lunch"]) or pools["lunch"]
-            
+            plan[slot_name] = []
+            pool = pools.get(slot_name.lower().split('/')[0].split(' ')[0], pools.get("lunch"))
+
             for _ in range(MAX_ITEMS_PER_MEAL):
-                if slot_target < 40: break
-                
-                # Allow sides and snacks in addition to main pool if already have a main
-                current_pool = main_pool if not plan[slot_name] else (main_pool + pools["side"] + pools["snack"])
-                
-                item = pick_best_candidate(current_pool, slot_target, remaining_budget, used_ids, strategy)
-                if not item: break
+                if slot_target < 40:
+                    break
+
+                item = pick_best_candidate(
+                    pool,
+                    slot_target,
+                    remaining_budget,
+                    used_ids,
+                    strategy
+                )
+
+                if not item:
+                    break
 
                 plan[slot_name].append(item)
                 used_ids.add(item.id)
+
                 slot_target -= item.calories
                 total_calories += item.calories
-                total_protein += item.protein
-                remaining_budget -= item.price
+                total_protein += float(item.protein)
+                remaining_budget -= float(item.price)
 
         error = abs(total_calories - target_calories)
         if error < best_error:
             best_error = error
             best_plan = (plan, total_calories, total_protein, budget - remaining_budget)
-        if error < 50: break
+
+        if error < 50:
+            break
 
     return best_plan
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def generate_plan(request):
+    """
+    Generate optimized diet plan based on budget and calorie goals using a strategy rotation system.
+    """
     try:
         profile = request.user.profile
         target_calories, daily_budget = resolve_user_targets(profile, request)
 
-        meals_count = int(request.data.get("meals_count", 3))
+        try:
+            meals_count = int(request.data.get("meals_count", 3))
+        except (ValueError, TypeError):
+            meals_count = 3
         meals_count = max(1, min(6, meals_count))
 
-        # Dynamic slot allocation
-        if meals_count == 1: slots = [("dinner", 1.0)]
-        elif meals_count == 2: slots = [("lunch", 0.5), ("dinner", 0.5)]
-        elif meals_count == 3: slots = [("breakfast", 0.25), ("lunch", 0.45), ("dinner", 0.3)]
+        # Define time slots based on meal count
+        if meals_count == 1:
+            slots = [("Lunch/Dinner", 1.0)]
+        elif meals_count == 2:
+            slots = [("Lunch", 0.5), ("Dinner", 0.5)]
+        elif meals_count == 3:
+            slots = [("Breakfast", 0.3), ("Lunch", 0.4), ("Dinner", 0.3)]
         else:
-            main_pct = 0.8
-            snack_pct = (1.0 - main_pct) / (meals_count - 3)
-            slots = [("breakfast", 0.2), ("lunch", 0.35), ("dinner", 0.25)]
+            # Distribute for 4-6 meals
+            slots = [("Breakfast", 0.2), ("Lunch", 0.3), ("Dinner", 0.25)]
+            rem = 0.25
             for i in range(meals_count - 3):
-                slots.append((f"snack_{i+1}", snack_pct))
+                slots.append((f"Snack {i+1}", rem / (meals_count - 3)))
 
-        pools = build_meal_pools(request.user, daily_budget, include_custom=request.data.get("include_custom", False))
+        include_custom = request.data.get("include_custom", False)
+        pools = build_meal_pools(request.user, daily_budget, include_custom=include_custom)
 
+        # Strategy Rotation
         strategy_index = (profile.last_plan_variant + 1) % len(STRATEGIES)
         strategy = STRATEGIES[strategy_index]
         profile.last_plan_variant = strategy_index
@@ -1270,54 +1322,48 @@ def generate_plan(request):
 
         result = optimize_plan(slots, pools, target_calories, daily_budget, strategy)
         if not result:
-            return Response({"error": "Unable to generate plan matching your budget and calories."}, status=400)
+            return Response({"error": "Unable to generate plan with current budget/calories."}, status=400)
 
-        plan, total_calories, total_protein, total_cost = result
+        plan_groups, total_calories, total_protein, total_cost = result
 
+        # Format output for frontend
         response_items = []
-        logical_order = ["breakfast", "lunch", "dinner"] + [f"snack_{i+1}" for i in range(7)]
-        sorted_slots = sorted(plan.keys(), key=lambda x: logical_order.index(x) if x in logical_order else 99)
-
-        for slot in sorted_slots:
-            items = plan[slot]
+        # Maintain order of slots for UI consistency
+        for slot_label, _ in slots:
+            items = plan_groups.get(slot_label, [])
             for i, item in enumerate(items):
-                label = slot.capitalize()
-                if "Snack" in label: label = "Snack"
                 response_items.append({
-                    "meal_label": label if i == 0 else "Extras",
+                    "meal_label": slot_label if i == 0 else "Sides & Extras",
                     "name": item.name,
                     "name_ar": item.name_ar,
                     "calories": item.calories,
                     "protein": int(item.protein),
-                    "price": round(item.price, 2),
+                    "price": float(item.price),
                     "source": item.source,
                     "image": item.image,
                     "id": item.id,
-                    "type": item.id.split('_')[0]
+                    "type": "egyptian" if "egy_" in str(item.id) else "global"
                 })
 
         return Response({
             "plan": response_items,
-            "total_calories": int(total_calories),
+            "total_calories": total_calories,
             "total_protein": int(total_protein),
-            "total_cost": round(total_cost, 2),
+            "total_cost": round(float(total_cost), 2),
             "plan_variant": strategy,
-            "warning": "" if abs(total_calories - target_calories) < 250 else "Calorie target was difficult to match with current budget.",
-            "meals_count": meals_count,
-            "target_calories": target_calories,
-            "daily_budget": daily_budget
+            "warning": "" if abs(total_calories - target_calories) < 200 else "Adjusted to fit targets",
+            "meals_count": meals_count
         })
 
     except Exception as e:
         import traceback
+        print(f"DIET PLAN ERROR: {str(e)}")
+        print(traceback.format_exc())
         return Response({
             "error": "Diet plan generation failed",
-            "details": str(e),
-            "traceback": traceback.format_exc()
+            "details": str(e)
         }, status=500)
-    
-    # Failsafe return (should never be reached if try/except works)
-    return Response({"error": "Unknown system error (Fallthrough)"}, status=500)
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -1400,15 +1446,15 @@ def get_smart_feed(request):
             "id": meal.id,
             "name": meal.name,
             "name_ar": meal.name_ar,
-            "calories": int(meal.calories or 0),
-            "protein": float(meal.protein_g or 0),
-            "price": float(round(price, 2)),
-            "image": "", 
+            "calories": meal.calories,
+            "protein": meal.protein_g,
+            "price": round(price, 2),
+            "image": "", # Add placeholder URL or logic if available
             "source": "Market",
             "tag": "Best Value" if eff > 50 else "Standard",
             "type": "global",
             "categories": cats,
-            "_efficiency": float(eff)
+            "_efficiency": eff
         })
 
     # 2. Egyptian Meals (Traditional)
@@ -1456,17 +1502,17 @@ def get_smart_feed(request):
         
         feed_items.append({
             "id": em.id,
-            "name": em.name_en or "Egyptian Meal",
-            "name_ar": em.name_ar or em.name_en or "وجبة مصرية",
-            "calories": int(float(nutrition.get('calories', 0))),
-            "protein": float(nutrition.get('protein', 0)),
-            "price": float(round(localized_price, 2)),
-            "image": em.image_url or "",
+            "name": em.name_en,
+            "name_ar": em.name_ar,
+            "calories": nutrition.get('calories'),
+            "protein": nutrition.get('protein'),
+            "price": round(localized_price, 2),
+            "image": em.image_url,
             "source": "Traditional",
             "tag": "Egyptian",
             "type": "egyptian",
             "categories": cats,
-            "_efficiency": float(nutrition.get('calories', 0)) / float(localized_price) if localized_price > 0 else 0.0
+            "_efficiency": nutrition.get('calories', 0) / localized_price if localized_price > 0 else 0
         })
 
     # Sort ALL by efficiency (Value for Money)
