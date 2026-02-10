@@ -25,7 +25,48 @@ from .utils.meal_helpers import is_egyptian_meal, calculate_meal_efficiency
 from .utils.location_helpers import get_city_category
 
 def _get_daily_metrics(profile, query_date):
-# ... (unchanged) ...
+    summary, _ = DailySummary.objects.get_or_create(user=profile, date=query_date)
+    
+    # Calculate Macros from logs (DailySummary doesn't store them yet)
+    logs = MealLog.objects.filter(user=profile, date=query_date).select_related('meal', 'custom_meal', 'egyptian_meal')
+    
+    protein = Decimal('0.0')
+    carbs = Decimal('0.0')
+    fats = Decimal('0.0')
+    
+    modifiers = {
+        'LIGHT': Decimal('0.85'),
+        'STANDARD': Decimal('1.0'),
+        'HEAVY': Decimal('1.3')
+    }
+    
+    for log in logs:
+        mod = modifiers.get(log.prep_style, Decimal('1.0'))
+        qt = Decimal(str(log.quantity))
+        
+        p = Decimal('0')
+        c = Decimal('0')
+        f = Decimal('0')
+        
+        if log.meal:
+            p = log.meal.protein_g
+            c = log.meal.carbs_g
+            f = log.meal.fats_g
+        elif log.custom_meal:
+            p = log.custom_meal.protein_g
+            c = log.custom_meal.carbs_g
+            f = log.custom_meal.fats_g
+        elif log.egyptian_meal:
+            # Calculate from ingredients
+            nut = log.egyptian_meal.calculate_nutrition()
+            p = nut['protein']
+            c = nut['carbs']
+            f = nut['fat']
+            
+        protein += p * qt * mod
+        carbs += c * qt * mod
+        fats += f * qt * mod
+
     return {
         "summary": summary,
         "macros": {
