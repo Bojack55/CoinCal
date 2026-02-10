@@ -1240,15 +1240,23 @@ def generate_plan(request):
         # Helper to identify sides
         def is_side_dish(item):
             name_lower = item['name'].lower()
+            
+            # Robust Exclusion: If it's a known main meal or a combo, it's NOT a side
+            if any(x in name_lower for x in ['with', 'and', 'كشري', 'koshari', 'koshary', 'sandwich', 'hawawshi', 'burger', 'pizza']):
+                return False
+
             side_keywords = ['rice', 'bread', 'salad', 'baladi', 'عيش', 'أرز', 'سلطة', 'خبز',
                             'vegetables', 'cucumber', 'tomato', 'خيار', 'طماطم', 'fino', 'toast', 
                             'shamy', 'peta', 'dip', 'tahina', 'baba', 'soup', 'goulash_sweet',
-                            'sambousek', 'kobeba', 'turshi', 'pickle']
-            # Ensure Sandwiches are NOT sides even if they contain bread keywords (unlikely if checked properly)
-            if 'sandwich' in name_lower or 'hawawshi' in name_lower:
-                return False
+                            'sambousek', 'kobeba', 'turshi', 'pickle', 'dessert', 'sweet']
             
-            return any(keyword in name_lower for keyword in side_keywords) or item['calories'] < 150
+            # If name matches side keywords AND it's not a combo/main identified above
+            is_keyword_match = any(keyword in name_lower for keyword in side_keywords)
+            
+            # Also use a calorie threshold: items < 180 kcal are often sides unless they are very specific
+            is_low_cal = item['calories'] < 180
+            
+            return is_keyword_match or is_low_cal
     
         # Separate sides from mains
         for candidate in all_candidates:
