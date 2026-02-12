@@ -124,7 +124,24 @@ class Command(BaseCommand):
             {"name": "Eggplant", "name_ar": "باذنجان", "price": 15, "unit": "GRAM", "cal": 25, "p": 1, "c": 6, "f": 0.2, "fiber": 3},
             {"name": "Zucchini", "name_ar": "كوسة", "price": 30, "unit": "GRAM", "cal": 17, "p": 1.2, "c": 3, "f": 0.3, "fiber": 1},
             {"name": "Bell Peppers", "name_ar": "فلفل رومي", "price": 40, "unit": "GRAM", "cal": 20, "p": 0.9, "c": 4.6, "f": 0.2, "fiber": 1.7},
+            {"name": "Rice (Cooked)", "name_ar": "أرز مطبوخ", "price": 35, "unit": "GRAM", "cal": 130, "p": 2.7, "c": 28, "f": 0.3, "fiber": 0.4},
             {"name": "Molokhia Leaves", "name_ar": "ملوخية", "price": 25, "unit": "GRAM", "cal": 34, "p": 4, "c": 6, "f": 0.3, "fiber": 2.5}, 
+            {"name": "Green Beans", "name_ar": "فاصوليا خضرا", "price": 25, "unit": "GRAM", "cal": 31, "p": 1.8, "c": 7, "f": 0.2, "fiber": 2.7},
+            {"name": "Peas", "name_ar": "بسلة", "price": 30, "unit": "GRAM", "cal": 81, "p": 5, "c": 14, "f": 0.4, "fiber": 5},
+            {"name": "Spinach", "name_ar": "سبانخ", "price": 15, "unit": "GRAM", "cal": 23, "p": 2.9, "c": 3.6, "f": 0.4, "fiber": 2.2},
+            {"name": "Cabbage", "name_ar": "كرنب", "price": 10, "unit": "GRAM", "cal": 25, "p": 1.3, "c": 6, "f": 0.1, "fiber": 2.5},
+            {"name": "Red Cabbage", "name_ar": "كرنب أحمر", "price": 15, "unit": "GRAM", "cal": 31, "p": 1.4, "c": 7, "f": 0.1, "fiber": 2.1},
+            {"name": "Cauliflower", "name_ar": "قرنبيط", "price": 20, "unit": "GRAM", "cal": 25, "p": 1.9, "c": 5, "f": 0.3, "fiber": 2},
+            {"name": "Broccoli", "name_ar": "بروكلي", "price": 40, "unit": "GRAM", "cal": 34, "p": 2.8, "c": 7, "f": 0.4, "fiber": 2.6},
+            {"name": "Lettuce", "name_ar": "خس", "price": 10, "unit": "GRAM", "cal": 15, "p": 1.4, "c": 2.9, "f": 0.2, "fiber": 1.3},
+            {"name": "Garlic", "name_ar": "توم", "price": 40, "unit": "GRAM", "cal": 149, "p": 6.4, "c": 33, "f": 0.5, "fiber": 2.1},
+            {"name": "Carrot", "name_ar": "جزر", "price": 15, "unit": "GRAM", "cal": 41, "p": 0.9, "c": 10, "f": 0.2, "fiber": 2.8},
+            {"name": "Parsley", "name_ar": "بقدونس", "price": 10, "unit": "GRAM", "cal": 36, "p": 3, "c": 6, "f": 0.8, "fiber": 3.3},
+            {"name": "Dill", "name_ar": "شبت", "price": 10, "unit": "GRAM", "cal": 43, "p": 3.5, "c": 7, "f": 1.1, "fiber": 2.1},
+            {"name": "Cilantro", "name_ar": "كزبرة خضرا", "price": 10, "unit": "GRAM", "cal": 23, "p": 2.1, "c": 3.7, "f": 0.5, "fiber": 2.8},
+            {"name": "Radish", "name_ar": "فجل", "price": 10, "unit": "GRAM", "cal": 16, "p": 0.7, "c": 3.4, "f": 0.1, "fiber": 1.6},
+            {"name": "Beetroot", "name_ar": "بنجر", "price": 15, "unit": "GRAM", "cal": 43, "p": 1.6, "c": 10, "f": 0.2, "fiber": 2.8},
+            {"name": "Arugula (Rocca)", "name_ar": "جرجير", "price": 10, "unit": "GRAM", "cal": 25, "p": 2.6, "c": 3.7, "f": 0.7, "fiber": 1.6}, 
 
             # FRUITS
             {"name": "Bananas", "name_ar": "موز", "price": 30, "unit": "GRAM", "cal": 89, "p": 1.1, "c": 23, "f": 0.3, "fiber": 2.6},
@@ -132,6 +149,22 @@ class Command(BaseCommand):
             {"name": "Oranges", "name_ar": "برتقان", "price": 20, "unit": "GRAM", "cal": 47, "p": 0.9, "c": 12, "f": 0.1, "fiber": 2.4},
             {"name": "Dates", "name_ar": "تمر", "price": 100, "unit": "GRAM", "cal": 282, "p": 2.5, "c": 75, "f": 0.4, "fiber": 8},
             {"name": "Watermelon", "name_ar": "بطيخ", "price": 15, "unit": "GRAM", "cal": 30, "p": 0.6, "c": 8, "f": 0.2, "fiber": 0.4},
+            {"name": "Grapes (Red)", "name_ar": "عنب أحمر", "price": 35, "unit": "GRAM", "cal": 69, "p": 0.7, "c": 18, "f": 0.2, "fiber": 0.9},
+            {"name": "Grapes (Green)", "name_ar": "عنب بناتي", "price": 40, "unit": "GRAM", "cal": 69, "p": 0.7, "c": 18, "f": 0.2, "fiber": 0.9},
+            {"name": "Grapes", "name_ar": "عنب", "price": 40, "unit": "GRAM", "cal": 69, "p": 0.7, "c": 18, "f": 0.2, "fiber": 0.9},
+            {"name": "Strawberry", "name_ar": "فراولة", "price": 25, "unit": "GRAM", "cal": 32, "p": 0.7, "c": 7.7, "f": 0.3, "fiber": 2},
+            {"name": "Peach", "name_ar": "خوخ", "price": 30, "unit": "GRAM", "cal": 39, "p": 0.9, "c": 10, "f": 0.3, "fiber": 1.5},
+            {"name": "Plum", "name_ar": "برقوق", "price": 35, "unit": "GRAM", "cal": 46, "p": 0.7, "c": 11, "f": 0.3, "fiber": 1.4},
+            {"name": "Cantaloupe", "name_ar": "كانتلوب", "price": 15, "unit": "GRAM", "cal": 34, "p": 0.8, "c": 8, "f": 0.2, "fiber": 0.9},
+            {"name": "Fig", "name_ar": "تين", "price": 40, "unit": "GRAM", "cal": 74, "p": 0.8, "c": 19, "f": 0.3, "fiber": 2.9},
+            {"name": "Guava", "name_ar": "جوافة", "price": 20, "unit": "GRAM", "cal": 68, "p": 2.6, "c": 14, "f": 1, "fiber": 5.4},
+            {"name": "Pear", "name_ar": "كمثرى", "price": 40, "unit": "GRAM", "cal": 57, "p": 0.4, "c": 15, "f": 0.1, "fiber": 3.1},
+            {"name": "Apricot", "name_ar": "مشمش", "price": 45, "unit": "GRAM", "cal": 48, "p": 1.4, "c": 11, "f": 0.4, "fiber": 2},
+            {"name": "Cherry", "name_ar": "كريز", "price": 120, "unit": "GRAM", "cal": 50, "p": 1, "c": 12, "f": 0.3, "fiber": 1.6},
+            {"name": "Kiwi", "name_ar": "كيوي", "price": 80, "unit": "GRAM", "cal": 61, "p": 1.1, "c": 15, "f": 0.5, "fiber": 3},
+            {"name": "Pomegranate", "name_ar": "رمان", "price": 25, "unit": "GRAM", "cal": 83, "p": 1.7, "c": 19, "f": 1.2, "fiber": 4},
+            {"name": "Mandarin", "name_ar": "يوسفي", "price": 15, "unit": "GRAM", "cal": 53, "p": 0.8, "c": 13, "f": 0.3, "fiber": 1.8},
+            {"name": "Mango", "name_ar": "مانجو", "price": 35, "unit": "GRAM", "cal": 60, "p": 0.8, "c": 15, "f": 0.4, "fiber": 1.6},
 
             # CONDIMENTS
             {"name": "Tahini", "name_ar": "طحينة", "price": 180, "unit": "GRAM", "cal": 595, "p": 17, "c": 21, "f": 53, "fiber": 9}, 
@@ -139,6 +172,40 @@ class Command(BaseCommand):
             {"name": "Vegetable Oil", "name_ar": "زيت نباتي", "price": 110, "unit": "ML", "cal": 884, "p": 0, "c": 0, "f": 100, "fiber": 0},
             {"name": "Tomato Paste", "name_ar": "معجون طماطم", "price": 80, "unit": "GRAM", "cal": 82, "p": 4, "c": 19, "f": 0.5, "fiber": 4}, 
             {"name": "Honey", "name_ar": "عسل نحل", "price": 250, "unit": "GRAM", "cal": 304, "p": 0.3, "c": 82, "f": 0, "fiber": 0.2},
+            {"name": "Yeast", "name_ar": "خميرة", "price": 60, "unit": "GRAM", "cal": 325, "p": 40, "c": 41, "f": 7.6, "fiber": 27},
+            {"name": "Baking Powder", "name_ar": "بيكينج بودر", "price": 100, "unit": "GRAM", "cal": 53, "p": 0, "c": 28, "f": 0, "fiber": 0},
+            {"name": "Vanilla", "name_ar": "فانيليا", "price": 300, "unit": "GRAM", "cal": 288, "p": 0.1, "c": 13, "f": 0.1, "fiber": 0},
+            {"name": "Vinegar", "name_ar": "خل", "price": 15, "unit": "ML", "cal": 18, "p": 0, "c": 0, "f": 0, "fiber": 0},
+
+            # SUPERMARKET SNACKS
+            # Chips
+            {"name": "Chipsy (Salt)", "name_ar": "شيبسي ملح", "price": 10, "unit": "PIECE", "cal": 530, "p": 7, "c": 53, "f": 34, "fiber": 4}, # Per 100g, Unit=Bag ~50g usually but price is per piece? Let's assume Unit=PIECE and cal is per 100g.
+            {"name": "Chipsy (Chili & Lemon)", "name_ar": "شيبسي شطة وليمون", "price": 10, "unit": "PIECE", "cal": 540, "p": 6, "c": 54, "f": 33, "fiber": 3},
+            {"name": "Doritos (Nacho Cheese)", "name_ar": "دوريتوس جبنة", "price": 15, "unit": "PIECE", "cal": 500, "p": 7, "c": 58, "f": 26, "fiber": 5},
+            {"name": "Tiger Chips (Kebab)", "name_ar": "تايجر كباب", "price": 10, "unit": "PIECE", "cal": 530, "p": 6.5, "c": 52, "f": 35, "fiber": 3.5},
+            
+            # Biscuits & Cakes
+            {"name": "Oreo (Standard)", "name_ar": "أوريو", "price": 15, "unit": "PIECE", "cal": 480, "p": 5, "c": 68, "f": 20, "fiber": 2}, # Per 100g
+            {"name": "Biskrem", "name_ar": "بسكريم", "price": 10, "unit": "PIECE", "cal": 450, "p": 6, "c": 70, "f": 18, "fiber": 2},
+            {"name": "Bimbo", "name_ar": "بيمبو", "price": 10, "unit": "PIECE", "cal": 470, "p": 6, "c": 65, "f": 22, "fiber": 2},
+            {"name": "Molto (Chocolate)", "name_ar": "مولتو شوكولاتة", "price": 20, "unit": "PIECE", "cal": 400, "p": 7, "c": 45, "f": 20, "fiber": 2},
+            {"name": "Molto (Pate Feta)", "name_ar": "مولتو جبنة فيتا", "price": 15, "unit": "PIECE", "cal": 380, "p": 8, "c": 42, "f": 18, "fiber": 2},
+            {"name": "HoHos (Twinkies)", "name_ar": "هوهوز", "price": 10, "unit": "PIECE", "cal": 410, "p": 4, "c": 60, "f": 16, "fiber": 0},
+            
+            # Chocolates
+            {"name": "Cadbury Dairy Milk", "name_ar": "كادبوري ديري ميلك", "price": 35, "unit": "PIECE", "cal": 530, "p": 7, "c": 57, "f": 30, "fiber": 2},
+            {"name": "KitKat (4 Fingers)", "name_ar": "كيت كات", "price": 25, "unit": "PIECE", "cal": 500, "p": 7, "c": 62, "f": 25, "fiber": 2},
+            {"name": "Galaxy (Smooth Milk)", "name_ar": "جالاكسي", "price": 40, "unit": "PIECE", "cal": 540, "p": 6, "c": 56, "f": 32, "fiber": 0},
+            
+            # Drinks
+            {"name": "Pepsi (Can)", "name_ar": "بيبسي كانز", "price": 20, "unit": "PIECE", "cal": 41, "p": 0, "c": 11, "f": 0, "fiber": 0}, # Cal per 100ml
+            {"name": "Coca-Cola (Can)", "name_ar": "كوكاكولا كانز", "price": 20, "unit": "PIECE", "cal": 42, "p": 0, "c": 10.6, "f": 0, "fiber": 0},
+            {"name": "Juhayna Juice (Box)", "name_ar": "عصير جهينة", "price": 15, "unit": "PIECE", "cal": 45, "p": 0.5, "c": 11, "f": 0, "fiber": 0},
+            {"name": "Beyti Juice (Box)", "name_ar": "عصير بيتي", "price": 15, "unit": "PIECE", "cal": 50, "p": 0.5, "c": 12, "f": 0, "fiber": 0},
+            
+            # Instant Meals
+            {"name": "Indomie (Chicken)", "name_ar": "إندومي فراخ", "price": 15, "unit": "PIECE", "cal": 450, "p": 9, "c": 62, "f": 18, "fiber": 2},
+            {"name": "Indomie (Vegetables)", "name_ar": "إندومي خضار", "price": 15, "unit": "PIECE", "cal": 440, "p": 8, "c": 63, "f": 17, "fiber": 2},
         ]
 
         count = 0
